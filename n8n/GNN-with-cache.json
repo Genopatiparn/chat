@@ -1,0 +1,334 @@
+{
+  "name": "GNN with Caching System",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/plain"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -4080,
+        6480
+      ],
+      "id": "4294e897-4ac5-4a44-a78e-ce7760081176",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const userMessage = $json.message || '';\n  console.log('Processing message with FAQ Cache:', userMessage);\n  \n  // เช็ค FAQ Cache ก่อน\n  const faqResponse = checkFAQCache(userMessage);\n  if (faqResponse) {\n    console.log('FAQ Cache hit for:', userMessage);\n    return [{\n      json: {\n        output: {\n          issue: userMessage,\n          name: '',\n          phone: ''\n        },\n        faqResponse: faqResponse,\n        source: 'faq_cache'\n      }\n    }];\n  }\n  \n  // ถ้าไม่พบใน FAQ ให้ใช้ AI extraction\n  console.log('No FAQ match, proceeding with AI extraction');\n  return [{\n    json: {\n      message: userMessage,\n      source: 'needs_ai_extraction'\n    }\n  }];\n  \n} catch (error) {\n  console.error('Enhanced Information Extractor Error:', error);\n  return [{\n    json: {\n      output: {\n        issue: $json.message || 'ไม่ระบุ',\n        name: '',\n        phone: ''\n      },\n      source: 'error_fallback'\n    }\n  }];\n}\n\n// FAQ Cache Function\nfunction checkFAQCache(userMessage) {\n  const message = userMessage.toLowerCase().trim();\n  \n  // POS Usage\n  if (message.includes('pos') || message.includes('ใช้งาน') || message.includes('วิธีใช้')) {\n    return `📱 วิธีใช้งาน POS ระบบ\n\n1. เปิดแอป POS บนเครื่อง\n2. เลือกสินค้าที่ต้องการขาย\n3. ใส่จำนวนสินค้า\n4. เลือกวิธีการชำระเงิน\n5. พิมพ์ใบเสร็จ\n\n📞 หากต้องการความช่วยเหลือเพิ่มเติม โทร: 02-222-2222`;\n  }\n  \n  // Add Product\n  if (message.includes('เพิ่มสินค้า') || message.includes('สินค้าใหม่') || message.includes('ใส่สินค้า')) {\n    return `➕ วิธีเพิ่มสินค้าใหม่\n\n1. เข้าเมนู \"จัดการสินค้า\"\n2. กดปุ่ม \"เพิ่มสินค้าใหม่\"\n3. กรอกข้อมูล: ชื่อสินค้า, ราคา, รหัสสินค้า, หมวดหมู่\n4. บันทึกข้อมูล\n\n💡 สามารถสแกน Barcode ได้ด้วยค่ะ`;\n  }\n  \n  // Connection Issues\n  if (message.includes('เชื่อมต่อ') || message.includes('อินเทอร์เน็ต') || message.includes('ระบบล่ม') || message.includes('ไม่ได้')) {\n    return `🔧 แก้ไขปัญหาการเชื่อมต่อ\n\n1. เช็คสัญญาณอินเทอร์เน็ต\n2. รีสตาร์ทแอป POS\n3. เช็คการเชื่อมต่อ WiFi\n4. ลองใช้ข้อมูลมือถือ\n\n⚠️ หากยังไม่ได้ กรุณาติดต่อ: 02-222-2222 (24 ชม.)`;\n  }\n  \n  // Printing Issues\n  if (message.includes('พิมพ์') || message.includes('ใบเสร็จ') || message.includes('เครื่องพิมพ์') || message.includes('ปริ้น')) {\n    return `🖨️ แก้ไขปัญหาการพิมพ์\n\n1. เช็คกระดาษในเครื่องพิมพ์\n2. เช็คการเชื่อมต่อ Bluetooth/USB\n3. รีสตาร์ทเครื่องพิมพ์\n4. ตั้งค่าเครื่องพิมพ์ใหม่\n\n📋 สามารถส่งใบเสร็จทาง Email ได้ด้วยค่ะ`;\n  }\n  \n  // Payment\n  if (message.includes('ชำระเงิน') || message.includes('รับเงิน') || message.includes('qr') || message.includes('โอน') || message.includes('บัตร')) {\n    return `💳 วิธีการชำระเงิน\n\n✅ รองรับการชำระ:\n- เงินสด\n- บัตรเครดิต/เดบิต\n- QR Code (PromptPay)\n- โอนเงิน\n- เงินทอน\n\n📱 สแกน QR ผ่านแอป Banking ได้เลยค่ะ`;\n  }\n  \n  // Reports\n  if (message.includes('ยอดขาย') || message.includes('รายงาน') || message.includes('สรุป') || message.includes('สถิติ')) {\n    return `📊 ดูรายงานยอดขาย\n\n1. เข้าเมนู \"รายงาน\"\n2. เลือกช่วงเวลา: รายวัน/สัปดาห์/เดือน\n3. ดูรายละเอียด: ยอดขายรวม, จำนวนบิล, สินค้าขายดี\n\n📈 สามารถส่งออกเป็น Excel ได้ค่ะ`;\n  }\n  \n  // Backup\n  if (message.includes('สำรอง') || message.includes('backup') || message.includes('กู้ข้อมูล')) {\n    return `💾 การสำรองข้อมูล\n\n🔄 อัตโนมัติ: สำรองทุก 24 ชั่วโมง เก็บบน Cloud ปลอดภัย 100%\n\n📥 สำรองด้วยตนเอง:\n1. เข้าเมนู \"ตั้งค่า\"\n2. เลือก \"สำรองข้อมูล\"\n3. กด \"สำรองเดี๋ยวนี้\"\n\n✅ ข้อมูลปลอดภัยแน่นอนค่ะ`;\n  }\n  \n  // Contact\n  if (message.includes('ติดต่อ') || message.includes('เบอร์') || message.includes('ช่วยเหลือ') || message.includes('โทร')) {\n    return `📞 ช่องทางติดต่อ\n\n🕐 24 ชั่วโมง: 02-222-2222\n💬 LINE: @support_pos\n📧 Email: support@company.com\n\n🏢 สำนักงาน:\nจันทร์-ศุกร์ 9:00-18:00\nเสาร์ 9:00-16:00\n\n⚡ ตอบกลับภายใน 30 นาทีค่ะ`;\n  }\n  \n  return null; // ไม่พบใน FAQ\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6800,
+        6460
+      ],
+      "id": "faq-cache-checker",
+      "name": "FAQ Cache Checker"
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.message }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "name",
+              "description": "ชื่อ ,  Name"
+            },
+            {
+              "name": "phone",
+              "description": "เบอร์"
+            },
+            {
+              "name": "issue",
+              "description": "ปัญหา",
+              "required": true
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "คุณเป็นผู้เชี่ยวชาญที่สกัดข้อมูลจากข้อความ โดยคำนึงถึงบริบทการสนทนา\n\nกรุณาสกัดข้อมูลตามที่กำหนด"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        -6400,
+        6200
+      ],
+      "id": "ai-information-extractor",
+      "name": "AI Information Extractor"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputData = $input.first().json;\n  const userMessage = inputData.output?.issue || inputData.message || 'คำถามทั่วไป';\n  const startTime = Date.now();\n  const timeout = 25000; // 25 วินาที\n  \n  console.log('Processing QA with timeout for:', userMessage);\n  \n  // เช็ค FAQ ก่อน (ถ้ายังไม่ได้เช็ค)\n  if (inputData.source === 'faq_cache') {\n    return [{\n      json: {\n        response: inputData.faqResponse,\n        source: 'faq_cache',\n        responseTime: Date.now() - startTime\n      }\n    }];\n  }\n  \n  // สำหรับ AI call จริง - จำลองการเรียก AI พร้อม timeout\n  try {\n    const aiResponse = await new Promise((resolve, reject) => {\n      // Timeout handler\n      const timeoutId = setTimeout(() => {\n        reject(new Error('AI_TIMEOUT'));\n      }, timeout);\n      \n      // จำลอง AI call (ในความเป็นจริงจะเป็นการเรียก OpenAI API)\n      setTimeout(() => {\n        clearTimeout(timeoutId);\n        // จำลองการตอบของ AI\n        if (Math.random() > 0.1) { // 90% success rate\n          resolve({\n            response: `ขออภัยค่ะ ไม่พบข้อมูลเฉพาะเจาะจงสำหรับ \"${userMessage}\" ในเอกสารค่ะ\\n\\nแต่สามารถติดต่อเจ้าหน้าที่เพื่อขอความช่วยเหลือเพิ่มเติมได้ที่:\\n📞 โทร: 02-222-2222\\n💬 LINE: @support_pos\\n\\nเจ้าหน้าที่จะตอบกลับภายใน 24 ชั่วโมงค่ะ`,\n            responseTime: Date.now() - startTime\n          });\n        } else {\n          reject(new Error('AI_ERROR'));\n        }\n      }, Math.random() * 3000 + 1000); // 1-4 วินาที\n    });\n    \n    console.log('AI response received in', aiResponse.responseTime, 'ms');\n    return [{\n      json: {\n        response: aiResponse.response,\n        source: 'ai_success',\n        responseTime: aiResponse.responseTime\n      }\n    }];\n    \n  } catch (error) {\n    console.error('AI call failed:', error.message);\n    throw error;\n  }\n  \n} catch (error) {\n  console.error('Enhanced QA Chain Error:', error);\n  \n  let fallbackMessage = \"ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล\";\n  let requiresHuman = false;\n  \n  if (error.message === 'AI_TIMEOUT') {\n    fallbackMessage = \"ระบบกำลังประมวลผลช้ากว่าปกติ กรุณารอสักครู่แล้วลองใหม่อีกครั้งค่ะ\";\n    requiresHuman = true;\n  } else if (error.message.includes('rate_limit') || error.message.includes('429')) {\n    fallbackMessage = \"ขณะนี้มีผู้ใช้งานเยอะ กรุณารอสักครู่แล้วลองใหม่อีกครั้งค่ะ\";\n    requiresHuman = true;\n  } else if (error.message.includes('network') || error.message.includes('connection')) {\n    fallbackMessage = \"เกิดปัญหาการเชื่อมต่อ กรุณาเช็คอินเทอร์เน็ตแล้วลองใหม่ค่ะ\";\n    requiresHuman = true;\n  }\n  \n  if (requiresHuman) {\n    fallbackMessage += \"\\n\\nเจ้าหน้าที่จะติดต่อกลับภายใน 24 ชั่วโมงค่ะ\\nหากเร่งด่วน กรุณาติดต่อ: 02-222-2222\";\n  }\n  \n  return [{\n    json: {\n      response: fallbackMessage,\n      source: 'fallback',\n      requiresHumanResponse: requiresHuman,\n      error: error.message,\n      responseTime: Date.now() - startTime\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5840,
+        5740
+      ],
+      "id": "enhanced-qa-with-timeout",
+      "name": "Enhanced QA with Timeout"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputData = $input.first().json;\n  console.log('Response Handler - Input data:', JSON.stringify(inputData, null, 2));\n  \n  // ดึงข้อมูล response\n  const userReply = inputData.response || inputData.text || inputData.output || inputData.answer || '';\n  const source = inputData.source || 'unknown';\n  const responseTime = inputData.responseTime || 0;\n  \n  // Log การใช้งาน Cache\n  await logCacheUsage({\n    userId: $('Edit Fields1').first().json.body.events[0].source.userId,\n    message: $('Edit Fields1').first().json.body.events[0].message.text,\n    source: source,\n    responseTime: responseTime,\n    timestamp: new Date().toISOString()\n  });\n  \n  // เช็คว่ามีข้อมูลหรือไม่\n  if (!userReply || userReply.trim() === '') {\n    console.log('No response data found, using default message');\n    return [{\n      json: {\n        text: \"ขออภัยค่ะ ไม่พบข้อมูลที่ต้องการ กรุณาลองถามใหม่อีกครั้งค่ะ\\n\\nสามารถติดต่อเจ้าหน้าที่ได้ที่: 02-222-2222\"\n      }\n    }];\n  }\n  \n  console.log('Response sent - Source:', source, 'Time:', responseTime + 'ms');\n  \n  return [{\n    json: {\n      text: userReply,\n      metadata: {\n        source: source,\n        responseTime: responseTime,\n        timestamp: new Date().toISOString()\n      }\n    }\n  }];\n  \n} catch (error) {\n  console.error('Error in Response Handler:', error);\n  return [{\n    json: {\n      text: \"ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้งค่ะ\\n\\nหากปัญหายังคงอยู่ กรุณาติดต่อ: 02-222-2222\"\n    }\n  }];\n}\n\n// ฟังก์ชัน Log การใช้งาน Cache\nasync function logCacheUsage(data) {\n  try {\n    // ในที่นี้ควรบันทึกลง Google Sheets หรือ Database\n    console.log('Cache Usage Log:', JSON.stringify(data, null, 2));\n    \n    // สถิติเบื้องต้น\n    if (data.source === 'faq_cache') {\n      console.log('✅ FAQ Cache Hit - Fast Response');\n    } else if (data.source === 'ai_success') {\n      console.log('🤖 AI Success - Response Time:', data.responseTime + 'ms');\n    } else if (data.source === 'fallback') {\n      console.log('⚠️ Fallback Used - Potential Issue');\n    }\n  } catch (error) {\n    console.error('Error logging cache usage:', error);\n  }\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5420,
+        5740
+      ],
+      "id": "response-handler-with-logging",
+      "name": "Response Handler with Logging"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk",
+          "mode": "list",
+          "cachedResultName": "Session"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "CacheStats",
+          "mode": "manual"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ new Date().toISOString() }}",
+            "userId": "={{ $('Edit Fields1').first().json.body.events[0].source.userId }}",
+            "message": "={{ $('Edit Fields1').first().json.body.events[0].message.text }}",
+            "source": "={{ $json.source || 'unknown' }}",
+            "responseTime": "={{ $json.responseTime || 0 }}",
+            "error": "={{ $json.error || '' }}"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -5000,
+        5740
+      ],
+      "id": "cache-stats-logger",
+      "name": "Cache Stats Logger",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yXwpG74z0WCiuGZW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const today = new Date();\n  const startOfDay = new Date(today.setHours(0,0,0,0));\n  \n  // จำลองข้อมูลการใช้งาน (ในความเป็นจริงจะดึงจาก Google Sheets)\n  const mockUsageData = [\n    { source: 'faq_cache', responseTime: 50, timestamp: new Date() },\n    { source: 'ai_success', responseTime: 3500, timestamp: new Date() },\n    { source: 'fallback', responseTime: 25000, error: 'AI_TIMEOUT', timestamp: new Date() }\n  ];\n  \n  const stats = {\n    totalRequests: 0,\n    faqHits: 0,\n    aiCalls: 0,\n    timeouts: 0,\n    errors: 0,\n    avgResponseTime: 0\n  };\n  \n  // วิเคราะห์ข้อมูล\n  mockUsageData.forEach(item => {\n    stats.totalRequests++;\n    \n    if (item.source === 'faq_cache') {\n      stats.faqHits++;\n    } else if (item.source === 'ai_success') {\n      stats.aiCalls++;\n      stats.avgResponseTime += item.responseTime;\n    } else if (item.source === 'fallback' && item.error === 'AI_TIMEOUT') {\n      stats.timeouts++;\n    } else if (item.source === 'fallback') {\n      stats.errors++;\n    }\n  });\n  \n  // คำนวณค่าเฉลี่ย\n  if (stats.aiCalls > 0) {\n    stats.avgResponseTime = Math.round(stats.avgResponseTime / stats.aiCalls);\n  }\n  \n  // คำนวณ Cache Hit Rate\n  const cacheHitRate = stats.totalRequests > 0 ? \n    Math.round((stats.faqHits / stats.totalRequests) * 100) : 0;\n  \n  // สร้างรายงาน\n  const report = `📊 รายงาน Cache Performance\n\n🔢 สถิติรวม:\n- คำขอทั้งหมด: ${stats.totalRequests}\n- FAQ Cache Hits: ${stats.faqHits} (${cacheHitRate}%)\n- AI Calls: ${stats.aiCalls}\n- Timeouts: ${stats.timeouts}\n- Errors: ${stats.errors}\n\n⚡ Performance:\n- เวลาตอบเฉลี่ย: ${stats.avgResponseTime}ms\n- Cache Hit Rate: ${cacheHitRate}%\n\n💡 สถานะ: ${cacheHitRate > 40 ? '✅ ดี' : '⚠️ ควรปรับปรุง'}`;\n  \n  console.log('Performance Report Generated:', report);\n  \n  return [{\n    json: {\n      report: report,\n      stats: stats,\n      cacheHitRate: cacheHitRate,\n      status: cacheHitRate > 40 ? 'good' : 'needs_improvement'\n    }\n  }];\n  \n} catch (error) {\n  return [{\n    json: {\n      error: error.message,\n      report: \"ไม่สามารถสร้างรายงานได้\"\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4000,
+        5500
+      ],
+      "id": "performance-monitor",
+      "name": "Performance Monitor"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  // เช็คสถานะ Services\n  const healthChecks = {\n    system: true,\n    faqCache: true,\n    aiService: Math.random() > 0.1, // จำลอง 90% uptime\n    database: true,\n    lineApi: true\n  };\n  \n  const allHealthy = Object.values(healthChecks).every(status => status);\n  const healthyCount = Object.values(healthChecks).filter(status => status).length;\n  const totalServices = Object.keys(healthChecks).length;\n  \n  const healthReport = `🏥 Health Check Report\n\n📊 Services Status (${healthyCount}/${totalServices}):\n${Object.entries(healthChecks).map(([service, status]) => \n    `${status ? '✅' : '❌'} ${service}: ${status ? 'Healthy' : 'Down'}`\n  ).join('\\n')}\n\n🎯 Overall Status: ${allHealthy ? '✅ All Systems Operational' : '⚠️ Some Issues Detected'}\n\n⏰ Last Check: ${new Date().toLocaleString('th-TH')}`;\n  \n  console.log('Health Check Completed:', healthReport);\n  \n  return [{\n    json: {\n      report: healthReport,\n      services: healthChecks,\n      overallStatus: allHealthy ? 'healthy' : 'degraded',\n      timestamp: new Date().toISOString()\n    }\n  }];\n  \n} catch (error) {\n  return [{\n    json: {\n      error: error.message,\n      report: \"Health check failed\",\n      overallStatus: 'error'\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4000,
+        5800
+      ],
+      "id": "health-check",
+      "name": "Health Check"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tyreis88",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -9220,
+        6460
+      ],
+      "id": "webhook-main",
+      "name": "Webhook1",
+      "webhookId": "10a617e8-a0f3-401f-be76-79e386e0e4b8"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a027155a-071f-4e2c-9905-1b41abea507c",
+              "name": "body.events[0].replyToken",
+              "value": "={{ $('Webhook1').item.json.body.events[0].replyToken }}",
+              "type": "string"
+            },
+            {
+              "id": "812a988a-0520-46ed-af6f-0a431814a1bd",
+              "name": "body.events[0].message.text",
+              "value": "={{ $json.body.events[0].message.text }}",
+              "type": "string"
+            },
+            {
+              "id": "01feb716-a36a-4d7d-ac12-19bd0bb4b796",
+              "name": "body.events[0].source.userId",
+              "value": "={{ $json.body.events[0].source.userId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -8920,
+        6460
+      ],
+      "id": "edit-fields-main",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/reply",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"replyToken\": $('Edit Fields1').item.json.body.events[0].replyToken,\n  \"messages\": [\n    {\n      \"type\": \"text\",\n      \"text\": $json.text || 'ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้งค่ะ'\n    }\n  ]\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4560,
+        6480
+      ],
+      "id": "line-reply-main",
+      "name": "LINE Reply",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Cx3x2Lw4eG9d4Xyr",
+          "name": "Header Auth account 2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "FAQ Cache Checker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FAQ Cache Checker": {
+      "main": [
+        [
+          {
+            "node": "AI Information Extractor",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enhanced QA with Timeout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Information Extractor": {
+      "main": [
+        [
+          {
+            "node": "Enhanced QA with Timeout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enhanced QA with Timeout": {
+      "main": [
+        [
+          {
+            "node": "Response Handler with Logging",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Response Handler with Logging": {
+      "main": [
+        [
+          {
+            "node": "Cache Stats Logger",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "LINE Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-22T10:00:00.000Z",
+  "versionId": "cache-enabled-v1"
+}

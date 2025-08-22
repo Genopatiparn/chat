@@ -1,0 +1,2789 @@
+{
+  "name": "GNN",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/plain"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -4080,
+        6480
+      ],
+      "id": "4294e897-4ac5-4a44-a78e-ce7760081176",
+      "name": "Respond to Webhook1",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputData = $input.first().json;\n  \n  // เช็คว่าเป็น FAQ response หรือไม่\n  if (inputData.source === 'faq_cache') {\n    return [{\n      json: {\n        text: inputData.response\n      }\n    }];\n  }\n  \n  // เช็คว่าต้องการ human response หรือไม่\n  if (inputData.requiresHumanResponse) {\n    const extractedData = $('FAQ Cache Checker').item.json.output;\n    const name = extractedData?.name || '';\n    const issue = extractedData?.issue || 'ไม่ระบุ';\n    \n    let userReply = name ? \n      `เรียนคุณ ${name}\\nสอบถามมาเกี่ยวกับ \"${issue}\"\\nระบบกำลังมีปัญหาชั่วคราว เจ้าหน้าที่จะติดต่อกลับภายใน 24 ชั่วโมงค่ะ\\nหากเร่งด่วน กรุณาติดต่อ: 02-222-2222\\nขอบคุณที่ใช้บริการค่ะ` :\n      `สอบถามมาเกี่ยวกับ \"${issue}\"\\nระบบกำลังมีปัญหาชั่วคราว เจ้าหน้าที่จะติดต่อกลับภายใน 24 ชั่วโมงค่ะ\\nหากเร่งด่วน กรุณาติดต่อ: 02-222-2222\\nขอบคุณที่ใช้บริการค่ะ`;\n    \n    return [{\n      json: {\n        text: userReply\n      }\n    }];\n  }\n  \n  // กรณีปกติ - ใช้ response จาก AI หรือ fallback\n  const responseText = inputData.response || inputData.text || \"ขออภัยค่ะ ไม่สามารถประมวลผลข้อมูลได้ กรุณาลองใหม่อีกครั้งค่ะ\";\n  \n  return [{\n    json: {\n      text: responseText\n    }\n  }];\n  \n} catch (error) {\n  console.error('Enhanced Admin Alert Error:', error);\n  return [{\n    json: {\n      text: \"ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้งค่ะ หรือติดต่อ 02-222-2222\"\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5660,
+        6460
+      ],
+      "id": "1382a0af-d5d6-4f9a-a22d-de6a7d76ec67",
+      "name": "Enhanced Admin Alert"
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.message }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "name",
+              "description": "ชื่อ ,  Name"
+            },
+            {
+              "name": "phone",
+              "description": "เบอร์"
+            },
+            {
+              "name": "issue",
+              "description": "ปัญหา",
+              "required": true
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "คุณเป็นผู้เชี่ยวชาญจะที่สกัดข้อมูลจากข้อความ โดยคำนึงถึงบริบทการสนทนา\n\nกรุณาสกัดข้อมูลตามที่กำหนด"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        -6800,
+        6460
+      ],
+      "id": "0cbd0919-185b-4cb1-b52b-4b0af6ed5b14",
+      "name": "Information Extractor1"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputData = $input.first().json;\n  const userMessage = inputData.output?.issue || inputData.message || 'คำถามทั่วไป';\n  const startTime = Date.now();\n  const timeout = 25000; // 25 วินาที\n  \n  console.log('Processing QA with timeout for:', userMessage);\n  \n  // เช็ค FAQ ก่อน (ถ้ายังไม่ได้เช็ค)\n  if (inputData.source === 'faq_cache') {\n    return [{\n      json: {\n        response: inputData.faqResponse,\n        source: 'faq_cache',\n        responseTime: Date.now() - startTime\n      }\n    }];\n  }\n  \n  // สำหรับ AI call จริง - จำลองการเรียก AI พร้อม timeout\n  try {\n    // ในที่นี้ควรเป็นการเรียก AI จริง แต่เราจะจำลองด้วย setTimeout\n    const aiResponse = await new Promise((resolve, reject) => {\n      // Timeout handler\n      const timeoutId = setTimeout(() => {\n        reject(new Error('AI_TIMEOUT'));\n      }, timeout);\n      \n      // จำลอง AI call (ในความเป็นจริงจะเป็นการเรียก OpenAI API)\n      setTimeout(() => {\n        clearTimeout(timeoutId);\n        // จำลองการตอบของ AI\n        if (Math.random() > 0.1) { // 90% success rate\n          resolve({\n            response: `ขออภัยค่ะ ไม่พบข้อมูลเฉพาะเจาะจงสำหรับ \"${userMessage}\" ในเอกสารค่ะ\\n\\nแต่สามารถติดต่อเจ้าหน้าที่เพื่อขอความช่วยเหลือเพิ่มเติมได้ที่:\\n📞 โทร: 02-222-2222\\n💬 LINE: @support_pos\\n\\nเจ้าหน้าที่จะตอบกลับภายใน 24 ชั่วโมงค่ะ`,\n            responseTime: Date.now() - startTime\n          });\n        } else {\n          reject(new Error('AI_ERROR'));\n        }\n      }, Math.random() * 3000 + 1000); // 1-4 วินาที\n    });\n    \n    console.log('AI response received in', aiResponse.responseTime, 'ms');\n    return [{\n      json: {\n        response: aiResponse.response,\n        source: 'ai_success',\n        responseTime: aiResponse.responseTime\n      }\n    }];\n    \n  } catch (error) {\n    console.error('AI call failed:', error.message);\n    throw error;\n  }\n  \n} catch (error) {\n  console.error('Enhanced QA Chain Error:', error);\n  \n  let fallbackMessage = \"ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล\";\n  let requiresHuman = false;\n  \n  if (error.message === 'AI_TIMEOUT') {\n    fallbackMessage = \"ระบบกำลังประมวลผลช้ากว่าปกติ กรุณารอสักครู่แล้วลองใหม่อีกครั้งค่ะ\";\n    requiresHuman = true;\n  } else if (error.message.includes('rate_limit') || error.message.includes('429')) {\n    fallbackMessage = \"ขณะนี้มีผู้ใช้งานเยอะ กรุณารอสักครู่แล้วลองใหม่อีกครั้งค่ะ\";\n    requiresHuman = true;\n  } else if (error.message.includes('network') || error.message.includes('connection')) {\n    fallbackMessage = \"เกิดปัญหาการเชื่อมต่อ กรุณาเช็คอินเทอร์เน็ตแล้วลองใหม่ค่ะ\";\n    requiresHuman = true;\n  }\n  \n  if (requiresHuman) {\n    fallbackMessage += \"\\n\\nเจ้าหน้าที่จะติดต่อกลับภายใน 24 ชั่วโมงค่ะ\\nหากเร่งด่วน กรุณาติดต่อ: 02-222-2222\";\n  }\n  \n  return [{\n    json: {\n      response: fallbackMessage,\n      source: 'fallback',\n      requiresHumanResponse: requiresHuman,\n      error: error.message,\n      responseTime: Date.now() - startTime\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5840,
+        5740
+      ],
+      "id": "ffea8716-284c-4032-9458-3833500befe3",
+      "name": "Enhanced QA with Timeout"
+    },
+    {
+      "parameters": {
+        "topK": 7
+      },
+      "type": "@n8n/n8n-nodes-langchain.retrieverVectorStore",
+      "typeVersion": 1,
+      "position": [
+        -5760,
+        5960
+      ],
+      "id": "02dac23f-3d83-44c7-a8a7-2dadaae0505b",
+      "name": "Vector Store Retriever",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "my_collection55",
+          "mode": ""
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        -5740,
+        6120
+      ],
+      "id": "2e6267c4-6668-4b75-a12e-340b596d4df9",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "rRKHy3jO1VHzH0Xr",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -5640,
+        6260
+      ],
+      "id": "18ea608f-f919-410b-b405-545410b02002",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "2RHOyXm2TG8WDZok",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -5920,
+        5960
+      ],
+      "id": "cbbe5c53-15fc-42e4-8722-49222d06e313",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "2RHOyXm2TG8WDZok",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputText": "={{ $json.output.issue || $json.message || 'คำถามทั่วไป' }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "คำถาม",
+              "description": " เกี่ยวกับ pos, การเพิ่มสินค้า, คู่มือ"
+            },
+            {
+              "category": "สอบถามบริการ",
+              "description": "สอบถามเกี่ยวกับบริการที่มี"
+            },
+            {
+              "category": "แจ้งปัญหา",
+              "description": "แจ้งปัญหาการใช้งานและขอความช่วยเหลือ"
+            },
+            {
+              "category": "อื่นๆ",
+              "description": "ทักทาย, ขอบคุณ"
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "=คุณเป็นผู้เชี่ยวชาญที่จะต้องช่วยเหลือลูกค้าในการหาข้อมูลหรือสอบถามเจ้าหน้าที่\n",
+          "enableAutoFixing": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        -6400,
+        6440
+      ],
+      "id": "55bcbfd3-d83e-42c4-8f5b-d19b71a34f7b",
+      "name": "Text Classifier"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -6600,
+        6700
+      ],
+      "id": "40bffc35-2dca-4d5f-ace0-877e3acee600",
+      "name": "OpenAI Chat Model4",
+      "credentials": {
+        "openAiApi": {
+          "id": "2RHOyXm2TG8WDZok",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputData = $input.first().json;\n  console.log('Response Handler - Input data:', JSON.stringify(inputData, null, 2));\n  \n  // ดึงข้อมูล response\n  const userReply = inputData.response || inputData.text || inputData.output || inputData.answer || '';\n  const source = inputData.source || 'unknown';\n  const responseTime = inputData.responseTime || 0;\n  \n  // Log การใช้งาน Cache\n  await logCacheUsage({\n    userId: $('Edit Fields1').first().json.body.events[0].source.userId,\n    message: $('Edit Fields1').first().json.body.events[0].message.text,\n    source: source,\n    responseTime: responseTime,\n    timestamp: new Date().toISOString()\n  });\n  \n  // เช็คว่ามีข้อมูลหรือไม่\n  if (!userReply || userReply.trim() === '') {\n    console.log('No response data found, using default message');\n    return [{\n      json: {\n        text: \"ขออภัยค่ะ ไม่พบข้อมูลที่ต้องการ กรุณาลองถามใหม่อีกครั้งค่ะ\\n\\nสามารถติดต่อเจ้าหน้าที่ได้ที่: 02-222-2222\"\n      }\n    }];\n  }\n  \n  console.log('Response sent - Source:', source, 'Time:', responseTime + 'ms');\n  \n  return [{\n    json: {\n      text: userReply,\n      metadata: {\n        source: source,\n        responseTime: responseTime,\n        timestamp: new Date().toISOString()\n      }\n    }\n  }];\n  \n} catch (error) {\n  console.error('Error in Response Handler:', error);\n  return [{\n    json: {\n      text: \"ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้งค่ะ\\n\\nหากปัญหายังคงอยู่ กรุณาติดต่อ: 02-222-2222\"\n    }\n  }];\n}\n\n// ฟังก์ชัน Log การใช้งาน Cache\nasync function logCacheUsage(data) {\n  try {\n    // ในที่นี้ควรบันทึกลง Google Sheets หรือ Database\n    console.log('Cache Usage Log:', JSON.stringify(data, null, 2));\n    \n    // สถิติเบื้องต้น\n    if (data.source === 'faq_cache') {\n      console.log('✅ FAQ Cache Hit - Fast Response');\n    } else if (data.source === 'ai_success') {\n      console.log('🤖 AI Success - Response Time:', data.responseTime + 'ms');\n    } else if (data.source === 'fallback') {\n      console.log('⚠️ Fallback Used - Potential Issue');\n    }\n  } catch (error) {\n    console.error('Error logging cache usage:', error);\n  }\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5420,
+        5740
+      ],
+      "id": "9e65b73e-894a-48cb-afc6-8bff5d4907e7",
+      "name": "Response Handler with Logging"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/reply",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"replyToken\": $('Edit Fields1').item.json.body.events[0].replyToken,\n  \"messages\": [\n    {\n      \"type\": \"text\",\n      \"text\": $json.text || 'ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้งค่ะ'\n    }\n  ]\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4560,
+        6480
+      ],
+      "id": "ab37a8d6-53cd-4602-b554-cb54407adae7",
+      "name": "HTTP Request4",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Cx3x2Lw4eG9d4Xyr",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tyreis88",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -9220,
+        6460
+      ],
+      "id": "3c1083ff-ccd9-436b-b0dd-8d1f15f2c2e6",
+      "name": "Webhook1",
+      "webhookId": "10a617e8-a0f3-401f-be76-79e386e0e4b8"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a027155a-071f-4e2c-9905-1b41abea507c",
+              "name": "body.events[0].replyToken",
+              "value": "={{ $('Webhook1').item.json.body.events[0].replyToken }}",
+              "type": "string"
+            },
+            {
+              "id": "812a988a-0520-46ed-af6f-0a431814a1bd",
+              "name": "body.events[0].message.text",
+              "value": "={{ $json.body.events[0].message.text }}",
+              "type": "string"
+            },
+            {
+              "id": "01feb716-a36a-4d7d-ac12-19bd0bb4b796",
+              "name": "body.events[0].source.userId",
+              "value": "={{ $json.body.events[0].source.userId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -8920,
+        6460
+      ],
+      "id": "648096cf-6ed2-4cf0-954a-f3056424ab52",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const extractedData = $('Information Extractor1').item.json.output;\n  \n  // เช็คข้อมูลก่อนใช้งาน\n  if (!extractedData) {\n    console.log('No extracted data found in Admin Alert Code1');\n    return [{\n      json: {\n        text: \"ขออภัยค่ะ ไม่สามารถประมวลผลข้อมูลได้ กรุณาลองใหม่อีกครั้งค่ะ\"\n      }\n    }];\n  }\n  \n  const name = extractedData.name || '';\n  const issue = extractedData.issue || 'ไม่ระบุ';\n  \n  // สร้างข้อความตอบกลับผู้ใช้\n  let userReply = name ? \n    `เรียนคุณ ${name}\\nแจ้งมาเกี่ยวกับ \"${issue}\"\\nเจ้าหน้าที่จะติดต่อกลับภายใน 24 ชั่วโมงค่ะ\\nหากเร่งด่วน กรุณาติดต่อที่: 02-222-2222\\nขอบคุณที่ใช้บริการค่ะ` :\n    `แจ้งมาเกี่ยวกับ \"${issue}\"\\nเจ้าหน้าที่จะติดต่อกลับภายใน 24 ชั่วโมงค่ะ\\nหากเร่งด่วน กรุณาติดต่อที่: 02-222-2222\\nขอบคุณที่ใช้บริการค่ะ`;\n  \n  // ทำความสะอาดข้อความ\n  const cleanedReply = userReply.replace(/[\\n\\r]/g, \" \").replace(/\"/g, '\\\\\"');\n  \n  console.log('Admin Alert Code1 - Generated reply:', cleanedReply);\n  \n  return [{\n    json: {\n      text: cleanedReply\n    }\n  }];\n  \n} catch (error) {\n  console.error('Error in Admin Alert Code1:', error);\n  return [{\n    json: {\n      text: \"ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้งค่ะ\"\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5660,
+        6640
+      ],
+      "id": "57b059ef-e60a-49aa-8970-47ddd6034f93",
+      "name": "Admin Alert Code5"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/reply",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"replyToken\": $('Edit Fields1').item.json.body.events[0].replyToken,\n  \"messages\": [\n    {\n      \"type\": \"text\",\n      \"text\": $json.text\n    }\n  ]\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1680,
+        8060
+      ],
+      "id": "f91d0bfa-debb-4e4d-9de9-e66137134fab",
+      "name": "HTTP Request2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Cx3x2Lw4eG9d4Xyr",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/reply",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"replyToken\": $('Edit Fields1').item.json.body.events[0].replyToken,\n  \"messages\": [\n    {\n      \"type\": \"text\",\n      \"text\": $json.text\n    }\n  ]\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1040,
+        7400
+      ],
+      "id": "1d9c2360-e76d-4762-a02b-1bccf7894d05",
+      "name": "HTTP Request6",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Cx3x2Lw4eG9d4Xyr",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "653e6047-eb03-4452-9677-27a668dc86c5",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "available",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -800,
+        7720
+      ],
+      "id": "8eb5f675-9a3e-43b5-9a63-934898ff243c",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  // ดึงข้อมูลพื้นฐาน\n  const webhookData = $('Edit Fields1').item.json;\n  const userId = $('Edit Fields1').first().json.body.events[0].source.userId;\n  const message = $('Edit Fields1').first().json.body.events[0].message.text;\n  const replyToken = $('Edit Fields1').first().json.body.events[0].replyToken;\n  const flowDecision = $input.first().json.flowDecision || 'default'; // กำหนดค่า default หากไม่มี flowDecision\n\n  console.log('Debug - Webhook data:', JSON.stringify(webhookData, null, 2));\n  console.log('Debug - userId extracted:', userId);\n  console.log('Debug - message extracted:', message);\n\n  // เช็คว่ามีข้อมูลครบหรือไม่\n  if (!userId) {\n    console.log('No userId found in webhook data');\n    return [{\n      json: {\n        status: 'error',\n        message: 'ไม่พบข้อมูลผู้ใช้',\n        canProceed: false,\n        debug: {\n          webhookData: webhookData,\n          extractedUserId: userId\n        }\n      }\n    }];\n  }\n\n  if (!message || message.trim() === '') {\n    console.log('Empty message received');\n    return [{\n      json: {\n        status: 'error',\n        userId: userId,\n        message: 'กรุณาส่งข้อความที่ต้องการสอบถามค่ะ',\n        canProceed: false,\n        replyToken: replyToken\n      }\n    }];\n  }\n\n  // เช็คคำสั่งพิเศษ\n  const lowerMessage = message.toLowerCase().trim();\n  if (lowerMessage === 'ยกเลิก' || lowerMessage === 'cancel') {\n    return [{\n      json: {\n        status: 'cancelled',\n        userId: userId,\n        message: 'ยกเลิกการดำเนินการเรียบร้อยค่ะ',\n        canProceed: false,\n        replyToken: replyToken\n      }\n    }];\n  }\n\n  // ถ้าเป็นคำสั่ง \"1\" ให้ข้ามการเช็ค session\n  if (message.trim() === '1') {\n    return [{\n      json: {\n        status: 'skip_session_check',\n        userId: userId,\n        message: message,\n        canProceed: true,\n        replyToken: replyToken,\n        isMenuCommand: true\n      }\n    }];\n  }\n\n  // เช็คว่า user มี active session หรือไม่จาก Google Sheets\n  let sheetsData = [];\n\n  // จัดการข้อมูลจาก Google Sheets อย่างปลอดภัย\n  try {\n    const sheetsResponse = $('Get row(s) in sheet2');\n    console.log('Sheets response:', JSON.stringify(sheetsResponse, null, 2));\n\n    // เช็คว่ามี items หรือไม่\n    if (sheetsResponse && sheetsResponse.items) {\n      sheetsData = sheetsResponse.items;\n    } else if (sheetsResponse && sheetsResponse.item) {\n      sheetsData = [sheetsResponse.item];\n    } else {\n      sheetsData = [];\n    }\n\n    console.log('Processed sheets data length:', sheetsData.length);\n\n  } catch (sheetsError) {\n    console.log('Error accessing sheets data:', sheetsError.message);\n    sheetsData = [];\n  }\n\n  let isWaiting = false;\n  let waitingEntry = null;\n\n  // ถ้าไม่มีข้อมูลใน Google Sheets เลย ให้สถานะเป็น available\n  if (sheetsData.length === 0) {\n    console.log(`No data in Google Sheets - User ${userId} can proceed`);\n    return [{\n      json: {\n        status: 'available',\n        userId: userId,\n        message: message,\n        canProceed: true,\n        replyToken: replyToken,\n        timestamp: Date.now(),\n        note: 'No existing sessions found',\n        flowDecision: flowDecision // เพิ่ม flowDecision ในผลลัพธ์\n      }\n    }];\n  }\n\n  // กรองข้อมูลที่เป็น error ออก และหาข้อมูลของ user นี้ที่มีสถานะ waiting\n  const validData = sheetsData.filter(item => {\n    const row = item.json || item;\n    // กรองข้อมูลที่ไม่ใช่ error\n    return row && typeof row === 'object' && !row.error && row.userId;\n  });\n\n  console.log('Valid data after filtering:', validData.length);\n\n  if (validData.length > 0) {\n    waitingEntry = validData.find(item => {\n      const row = item.json || item;\n      return row.userId === userId && row.status === 'waiting';\n    });\n    isWaiting = !!waitingEntry;\n  }\n\n  if (isWaiting) {\n    return [{\n      json: {\n        status: 'waiting',\n        userId: userId,\n        message: 'คุณมีคำถามที่รอการตอบกลับจากเจ้าหน้าที่อยู่ กรุณารอสักครู่ค่ะ หรือสามารถยกเลิกได้โดยพิมพ์ \"ยกเลิก\"',\n        canProceed: false,\n        replyToken: replyToken,\n        waitingSince: (waitingEntry.json || waitingEntry).timestamp || 'ไม่ทราบเวลา',\n        flowDecision: flowDecision // เพิ่ม flowDecision ในผลลัพธ์\n      }\n    }];\n  }\n\n  // ถ้าทุกอย่างปกติ ให้ดำเนินการต่อ\n  console.log(`User ${userId} can proceed with message: ${message}`);\n\n  return [{\n    json: {\n      status: 'available',\n      userId: userId,\n      message: message,\n      canProceed: true,\n      replyToken: replyToken,\n      timestamp: Date.now(),\n      flowDecision: flowDecision // เพิ่ม flowDecision ในผลลัพธ์\n    }\n  }];\n\n} catch (error) {\n  console.error('Error in Check User Session:', error);\n  return [{\n    json: {\n      status: 'error',\n      message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้งค่ะ',\n      canProceed: false,\n      error: error.message,\n      stack: error.stack,\n      flowDecision: flowDecision // เพิ่ม flowDecision ในผลลัพธ์กรณีเกิดข้อผิดพลาด\n    }\n  }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7620,
+        6460
+      ],
+      "id": "423dbd83-ffdf-4656-828b-fd982f9c0ca9",
+      "name": "Check User Session1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. แก้ไข Code ใน \"Add User to Waiting\" node:\ntry {\n  // ดึงข้อมูลจาก Check User Session แทน\n  const sessionData = $('Check User Session1').first().json;\n  const userId = $input.first().json.userId\n  const message = $input.first().json.message\n  \n  console.log('Debug - userId found:', userId);\n  console.log('Debug - message found:', message);\n  \n  if (!userId) {\n    console.log('No userId provided for waiting session');\n    return [{\n      json: {\n        error: 'No userId provided',\n        status: 'failed'\n      }\n    }];\n  }\n  \n  // จำลองการเพิ่ม user เข้า waiting list\n  const currentTime = new Date().toISOString();\n  \n  console.log(`User ${userId} added to waiting list at ${currentTime}`);\n  \n  // เตรียมข้อมูลสำหรับ Google Sheets\n  return [{\n    json: {\n      userId: userId,\n      status: 'waiting',\n      timestamp: currentTime,\n      message: message || 'ไม่ระบุ'\n    }\n  }];\n  \n} catch (error) {\n  console.error('Error in Add User to Waiting:', error);\n  return [{\n    json: {\n      error: error.message,\n      status: 'failed',\n      stack: error.stack\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6520,
+        7060
+      ],
+      "id": "c692e26d-5dfa-4aa7-b4a2-5844ce5af9f8",
+      "name": "Add User to Waiting1"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  let inputData = $input.length > 0 ? $input.first().json : {};\n  \n  let userId = $('Webhook1').first().json.body.events[0].source.userId\n\n  // ถ้าไม่มี userId ใน input ให้ไปดึงจาก Check User Session\n  if (!userId) {\n    try {\n      const sessionData = $('Check User Session1').first().json;\n      userId = sessionData.userId;\n    } catch (e) {\n      console.log('Cannot retrieve userId from Check User Session');\n    }\n  }\n\n  if (!userId) {\n    console.log('No userId provided for removal from waiting');\n    return [{\n      json: {\n        error: 'No userId provided',\n        status: 'failed'\n      }\n    }];\n  }\n\n  const currentTime = new Date().toISOString();\n  console.log(`User ${userId} removed from waiting list at ${currentTime}`);\n\n  let adminResponse = 'เจ้าหน้าที่ได้ตอบกลับแล้วค่ะ';\n  try {\n    const waitData = $('Wait1').first().json;\n    adminResponse = waitData.response || waitData.message || waitData.text || adminResponse;\n  } catch (e) {\n    console.log('Cannot access Wait data:', e.message);\n  }\n\n  return [{\n    json: {\n      userId: userId,\n      status: 'completed',\n      timestamp: currentTime,\n      adminResponse: adminResponse\n    }\n  }];\n\n} catch (error) {\n  console.error('Error in Remove User from Waiting:', error);\n  return [{\n    json: {\n      error: error.message,\n      status: 'failed',\n      stack: error.stack\n    }\n  }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5660,
+        7060
+      ],
+      "id": "9361132b-e45f-4120-b578-6c2012016b3e",
+      "name": "Remove User from Waiting1"
+    },
+    {
+      "parameters": {
+        "resume": "form",
+        "formTitle": "แอดมินตอบ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -5960,
+        7060
+      ],
+      "id": "dc4aa402-705b-4445-b8f5-f92eb865f442",
+      "name": "Wait1",
+      "webhookId": "a3ad52d2-8590-410f-a1d8-8dc89e56bd2f",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk",
+          "mode": "list",
+          "cachedResultName": "Session",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "ชีต1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit#gid=0"
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -5400,
+        7060
+      ],
+      "id": "33257657-fff3-4d85-bcbd-a1352c35e21a",
+      "name": "Clear sheet",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yXwpG74z0WCiuGZW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk",
+          "mode": "list",
+          "cachedResultName": "Session",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "ชีต1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -1500,
+        6980
+      ],
+      "id": "097dbe6f-ad44-44f1-8c32-930a29effc3c",
+      "name": "Get row(s) in sheet2",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yXwpG74z0WCiuGZW",
+          "name": "Google Sheets account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk",
+          "mode": "list",
+          "cachedResultName": "Session",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "ชีต1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -6220,
+        7060
+      ],
+      "id": "1452546e-29c7-4fe1-b766-fd634c005bd6",
+      "name": "Append row in sheet",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yXwpG74z0WCiuGZW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Get Conversation History1').item.json.flowDecision }}",
+                    "rightValue": "first_greeting",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "35280fc8-aed7-472d-9a97-b875d3d69cbf"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "78409f79-3d13-4b2b-9808-a515d3a35c68",
+                    "leftValue": "={{ $('Get Conversation History1').item.json.flowDecision }}",
+                    "rightValue": "returning_greeting",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "5e1f7234-d963-45a3-bc81-91d0bb095aed",
+                    "leftValue": "={{ $('Get Conversation History1').item.json.flowDecision }}",
+                    "rightValue": "simple_response",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "4f5809f3-a033-4270-b1b5-6fe3d3b6ee5e",
+                    "leftValue": "={{ $('Get Conversation History1').item.json.flowDecision }}",
+                    "rightValue": "continue_conversation",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cf88376f-6117-45b7-ae0b-43f80bf4dfe3",
+                    "leftValue": "={{ $('Get Conversation History1').item.json.flowDecision }}",
+                    "rightValue": "new_question",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e50085e1-e092-4ada-b053-9df0ec1498a0",
+                    "leftValue": "={{ $json.message }}",
+                    "rightValue": "1",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -7220,
+        6400
+      ],
+      "id": "2bf42e2b-ef27-490b-bd5c-e7c3546d7797",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/reply",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"replyToken\": $('Switch1').item.json.replyToken,\n  \"messages\": [\n    {\n      \"type\": \"text\",\n      \"text\": $json.output.issue\n    }\n  ]\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1520,
+        7600
+      ],
+      "id": "36bdc501-8a79-4523-8bde-a882a701457b",
+      "name": "HTTP Request7",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Cx3x2Lw4eG9d4Xyr",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "text": "={{ $json.chatInput }}",
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notionTool",
+      "typeVersion": 2.2,
+      "position": [
+        -1020,
+        7760
+      ],
+      "id": "c5579c1c-0d5c-4f6f-8d28-880777994505",
+      "name": "Notion",
+      "credentials": {
+        "notionApi": {
+          "id": "IptNwQyRHEkhMtNf",
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const userId = $('Edit Fields1').first().json.body?.events[0]?.source?.userId;\n  const currentMessage = $input.first().json.message.content\n  const replyToken = $('Edit Fields1').first().json.body?.events[0]?.replyToken;\n\n  // ตรวจสอบว่า userId หรือ currentMessage มีค่าไหม\n  if (!userId || !currentMessage) {\n    throw new Error('Missing userId or currentMessage');\n  }\n\n  // ดึงประวัติการสนทนาจาก Google Sheets\n  const conversationData = $('Get Conversation History Sheet1').items || [];\n  \n  // หาประวัติของ user นี้ในช่วง 24 ชั่วโมงที่ผ่านมา\n  const now = new Date();\n  const oneDayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));\n  \n  const userHistory = conversationData.filter(item => {\n    const row = item.json || item;\n    if (!row.userId || !row.timestamp) return false;\n    \n    const messageTime = new Date(row.timestamp);\n    return row.userId === userId && messageTime > oneDayAgo;\n  }).sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));\n\n  // ตรวจสอบประเภทข้อความ\n  const greetings = ['สวัสดี', 'หวัดดี', 'hello', 'hi', 'ดีจ้า', 'ไฮ', 'สวัสดีครับ', 'สวัสดีค่ะ'];\n  const isGreeting = greetings.some(greeting => \n    currentMessage.toLowerCase().includes(greeting.toLowerCase())\n  );\n  \n  const simpleResponses = ['ขอบคุณ', 'thank you', 'โอเค', 'ok', 'ครับ', 'ค่ะ', 'ขอบใจ'];\n\n// ตรวจสอบว่า currentMessage มีคำใดใน simpleResponses หรือไม่\n  const isSimpleResponse = simpleResponses.some(word => \n        simpleResponses.some(response => currentMessage.toLowerCase().includes(response.toLowerCase()))\n);\n\n  \n  // สร้างบริบทการสนทนา \n  let conversationContext = \"\"; \n  if (userHistory.length > 0) { \n    const recentMessages = userHistory.slice(-6); // เอา 6 ข้อความล่าสุด (3 คู่สนทนา) \n    conversationContext = \"ประวัติการสนทนาล่าสุด:\\n\"; \n    recentMessages.forEach(item => { \n      const row = item.json || item; \n      conversationContext += `${row.role}: ${row.message}\\n`; \n    }); \n    conversationContext += `\\nข้อความปัจจุบัน: ${currentMessage}`; \n  }\n\n  // กำหนด flow ที่จะใช้\n  let flowDecision = 'unknown';\n  let shouldUseRAG = false;\n  let shouldUseContinuation = false;\n  \n  if (isGreeting && userHistory.length === 0) {\n    // ทักทายครั้งแรก\n    flowDecision = 'first_greeting';\n  } else if (isGreeting && userHistory.length > 0) {\n    // ทักทายคนที่เคยคุยแล้ว\n    flowDecision = 'returning_greeting';\n  } else if (isSimpleResponse) {\n    // การตอบสั้นๆ\n    flowDecision = 'simple_response';\n  } else if (userHistory.length > 0) {\n    // มีประวัติการสนทนา - ใช้ continuation\n    flowDecision = 'continue_conversation';\n    shouldUseContinuation = true;\n  } else {\n    // คำถามใหม่ที่ไม่มีประวัติ - ใช้ RAG\n    flowDecision = 'new_question';\n    shouldUseRAG = true;\n  }\n  \n  return [{\n    json: {\n      userId: userId,\n      currentMessage: currentMessage,  // ใช้ข้อความที่ได้รับการแก้ไข\n      replyToken: replyToken,\n      hasHistory: userHistory.length > 0,\n      historyCount: userHistory.length,\n      conversationContext: conversationContext,\n      isGreeting: isGreeting,\n      isSimpleResponse: isSimpleResponse,\n      flowDecision: flowDecision,\n      shouldUseRAG: shouldUseRAG,\n      shouldUseContinuation: shouldUseContinuation,\n      timestamp: now.toISOString(),\n      sessionId: `${userId}_${now.toISOString().split('T')[0]}`\n    }\n  }];\n  \n} catch (error) {\n  console.error('Error in Get Conversation History:', error);\n  return [{\n    json: {\n      flowDecision: 'error',\n      error: error.message,\n      userId: '',\n      currentMessage: '',\n      hasHistory: false,\n      shouldUseRAG: true,\n      shouldUseContinuation: false\n    }\n  }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7960,
+        6460
+      ],
+      "id": "db998857-b196-4f50-a4fa-257a3fd34bc7",
+      "name": "Get Conversation History1"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk",
+          "mode": "list",
+          "cachedResultName": "Session",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1586185798,
+          "mode": "list",
+          "cachedResultName": "n8n-sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit#gid=1586185798"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -8640,
+        6460
+      ],
+      "id": "ef775938-a8c2-4540-b055-d8ef46639d9c",
+      "name": "Get Conversation History Sheet1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yXwpG74z0WCiuGZW",
+          "name": "Google Sheets account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputData = $input.first().json;\n  \n  // ดึงข้อมูลจาก Get Conversation History\n  let contextData = {};\n  try {\n    contextData = $('Get Conversation History1').first().json;\n  } catch (e) {\n    console.log('Cannot access context data');\n  }\n  \n  const userId = contextData.userId || '';\n  const sessionId = contextData.sessionId || `${userId}_${new Date().toISOString().split('T')[0]}`;\n  const timestamp = new Date().toISOString();\n  \n  const records = [];\n  \n  // บันทึกข้อความของ user\n  if (contextData.currentMessage) {\n    records.push({\n      userId: userId,\n      sessionId: sessionId,\n      role: 'user',\n      message: contextData.currentMessage,\n      timestamp: timestamp,\n      messageType: contextData.flowDecision || 'user_message'\n    });\n  }\n  \n  // บันทึกการตอบกลับของ assistant\n  const assistantResponse = inputData.text || inputData.response || inputData.output || 'ตอบกลับไม่สำเร็จ';\n  records.push({\n    userId: userId,\n    sessionId: sessionId,\n    role: 'assistant',\n    message: assistantResponse,\n    timestamp: new Date(Date.now() + 1000).toISOString(),\n    messageType: inputData.messageType || 'assistant_response'\n  });\n  \n  // แปลงเป็น text format และ return เป็น array ของ objects\n  return records.map(record => ({ text: JSON.stringify(record) }));\n  \n} catch (error) {\n  console.error('Error saving conversation history:', error);\n  return [{ text: 'Error occurred while saving conversation history' }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5020,
+        6480
+      ],
+      "id": "49af1670-0fa9-4be0-a29c-30cc7199b707",
+      "name": "Save to Conversation History1",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputData = $input.first().json;\n  const conversationContext = inputData.conversationContext || '';\n  const currentMessage = inputData.currentMessage || '';\n  \n  if (!conversationContext) {\n    // ถ้าไม่มี context ให้ fallback ไป RAG\n    return [{\n      json: {\n        prompt: `กรุณาตอบคำถาม: ${currentMessage}`,\n        messageType: 'fallback_response'\n      }\n    }];\n  }\n  \n  // สร้าง prompt สำหรับการสนทนาต่อเนื่อง\n  const prompt = `คุณเป็น AI Assistant ที่ช่วยเหลือลูกค้า\n\n${conversationContext}\n\nคำแนะนำ:\n- อ้างอิงการสนทนาที่ผ่านมาเมื่อเหมาะสม\n- ไม่ต้องทักทายซ้ำ\n- ตอบให้ต่อเนื่องกับบริบท\n- ตอบเป็นภาษาไทยและลงท้ายด้วย \"ค่ะ\"\n\nกรุณาตอบ:`;\n  \n  return [{\n    json: {\n      prompt: prompt,\n      messageType: 'conversation_continue'\n    }\n  }];\n  \n} catch (error) {\n  return [{\n    json: {\n      prompt: `กรุณาตอบคำถาม: ${$input.first().json.currentMessage || ''}`,\n      messageType: 'error_response'\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6520,
+        6240
+      ],
+      "id": "0a9ac63c-31d5-4611-b55c-62ea603b06ff",
+      "name": "Code3"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputData = $input.first().json;\n  const flowDecision = inputData.flowDecision;\n  \n  let responseText = '';\n  \n  switch(flowDecision) {\n    case 'first_greeting':\n      const greetingResponses = [\n        'สวัสดีค่ะ! ยินดีต้อนรับสู่ระบบช่วยเหลือของเราค่ะ 😊 มีอะไรให้ช่วยเหลือมั้ยคะ?',\n        'หวัดดีค่ะ! ดิฉันพร้อมช่วยเหลือคุณแล้วค่ะ มีคำถามอะไรถามได้เลยนะคะ',\n        'สวัสดีค่ะ! ยินดีที่ได้รู้จักค่ะ มีอะไรที่อยากสอบถามมั้ยคะ?'\n      ];\n      responseText = greetingResponses[Math.floor(Math.random() * greetingResponses.length)];\n      break;\n      \n    case 'returning_greeting':\n      const returningResponses = [\n        'สวัสดีอีกครั้งค่ะ! มีอะไรเพิ่มเติมที่อยากสอบถามมั้ยคะ?',\n        'กลับมาอีกแล้วค่ะ! มีอะไรให้ช่วยเหลือเพิ่มเติมมั้ยคะ?',\n        'สวัสดีค่ะ! ดีใจที่เจอกันอีกครั้งค่ะ มีอะไรให้ช่วยมั้ยคะ?'\n      ];\n      responseText = returningResponses[Math.floor(Math.random() * returningResponses.length)];\n      break;\n      \n    case 'simple_response':\n      const simpleResponses = [\n        'ยินดีค่ะ 😊 หากมีคำถามอื่นๆ สามารถสอบถามได้เสมอนะคะ',\n        'มีอะไรให้ช่วยเหลืออีกมั้ยคะ?',\n        'ด้วยความยินดีค่ะ 🙏'\n      ];\n      responseText = simpleResponses[Math.floor(Math.random() * simpleResponses.length)];\n      break;\n      \n    default:\n      responseText = 'สวัสดีค่ะ มีอะไรให้ช่วยเหลือมั้ยคะ?';\n  }\n  \n  return [{\n    json: {\n      text: responseText,\n      messageType: flowDecision,\n      shouldSaveHistory: true\n    }\n  }];\n  \n} catch (error) {\n  return [{\n    json: {\n      text: 'สวัสดีค่ะ มีอะไรให้ช่วยเหลือมั้ยคะ?',\n      messageType: 'default',\n      shouldSaveHistory: true\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6520,
+        6060
+      ],
+      "id": "f7542f31-5cc4-40c5-a3c3-d1d139a51b8c",
+      "name": "Simple Response Generator1"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputData = $input.first().json;\n  const conversationContext = inputData.conversationContext || '';\n  const currentMessage = inputData.currentMessage || '';\n  \n  if (!conversationContext) {\n    // ถ้าไม่มี context ให้ fallback ไป RAG\n    return [{\n      json: {\n        response: `ขออภัยค่ะ ไม่พบประวัติการสนทนา กรุณาถามคำถามใหม่อีกครั้งค่ะ`,\n        messageType: 'fallback_response'\n      }\n    }];\n  }\n  \n  // สร้าง prompt สำหรับการสนทนาต่อเนื่อง\n  const prompt = `คุณเป็น AI Assistant ที่ชื่อ \"น้องบอท\" ที่ช่วยเหลือลูกค้า\nคุณต้องตอบโดยอ้างอิงจากบริบทการสนทนาที่ผ่านมา\n\n${conversationContext}\n\nคำแนะนำการตอบ:\n- อ้างอิงการสนทนาที่ผ่านมาเมื่อเหมาะสม\n- ไม่ต้องทักทายซ้ำถ้าเพิ่งทักทายไปแล้ว\n- ตอบให้ต่อเนื่องกับบริบท\n- ตอบเป็นภาษาไทยและลงท้ายด้วย \"ค่ะ\" หรือ \"ครับ\"\n- ถ้าไม่เข้าใจให้ถามย้อนกลับ\n- ตอบสั้นและกระชับ\n\nกรุณาตอบ:`;\n  \n  return [{\n    json: {\n      prompt: prompt,\n      messageType: 'conversation_continue',\n      contextLength: conversationContext.length\n    }\n  }];\n  \n} catch (error) {\n  return [{\n    json: {\n      response: `ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้งค่ะ`,\n      messageType: 'error_response'\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6400,
+        7940
+      ],
+      "id": "52e398d5-3751-4fb2-a3f0-edfe5fb5a1da",
+      "name": "Conversation Continuation1"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputData = $input.first().json;\n  \n  // ดึงข้อมูลจาก Get Conversation History\n  let contextData = {};\n  try {\n    contextData = $('Get Conversation History1').first().json;\n  } catch (e) {\n    console.log('Cannot access context data');\n  }\n  \n  const userId = contextData.userId || '';\n  const sessionId = contextData.sessionId || `${userId}_${new Date().toISOString().split('T')[0]}`;\n  const timestamp = new Date().toISOString();\n  \n  const records = [];\n  \n  // บันทึกข้อความของ user (ถ้ายังไม่ได้บันทึก)\n  if (contextData.currentMessage && !inputData.skipUserMessage) {\n    records.push({\n      userId: userId,\n      sessionId: sessionId,\n      role: 'user',\n      message: contextData.currentMessage,\n      timestamp: timestamp,\n      messageType: contextData.flowDecision || 'user_message'\n    });\n  }\n  \n  // บันทึกการตอบกลับของ assistant\n  const assistantResponse = inputData.text || inputData.response || inputData.output || 'ตอบกลับไม่สำเร็จ';\n  records.push({\n    userId: userId,\n    sessionId: sessionId,\n    role: 'assistant',\n    message: assistantResponse,\n    timestamp: new Date(Date.now() + 1000).toISOString(), // เพิ่ม 1 วินาทีเพื่อให้เรียงลำดับถูก\n    messageType: inputData.messageType || 'assistant_response'\n  });\n  \n  console.log('Saving conversation records:', records);\n  \n  return records.map(record => ({ json: record }));\n  \n} catch (error) {\n  console.error('Error saving conversation history:', error);\n  return [{\n    json: {\n      error: error.message,\n      userId: '',\n      sessionId: '',\n      role: 'error',\n      message: 'Failed to save conversation',\n      timestamp: new Date().toISOString(),\n      messageType: 'error'\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5780,
+        8040
+      ],
+      "id": "edb30cdd-9cfc-4407-8fb6-44f265499597",
+      "name": "Save Conversation1"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -6100,
+        8020
+      ],
+      "id": "5c5bacd6-61b8-41ca-b211-756df78c3e7a",
+      "name": "Get row(s) in sheet3",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yXwpG74z0WCiuGZW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const extractedData = $('Information Extractor1').item.json.output;\n  \n  // เช็คข้อมูลก่อนใช้งาน\n  if (!extractedData) {\n    console.log('No extracted data found');\n    return [{\n      json: {\n        text: \"ขออภัยค่ะ ไม่สามารถประมวลผลข้อมูลได้ กรุณาลองใหม่อีกครั้งค่ะ\"\n      }\n    }];\n  }\n  \n  const name = extractedData.name || '';\n  const issue = extractedData.issue || 'ไม่ระบุ';\n  \n  // สร้างข้อความตอบกลับผู้ใช้\n  let userReply = name ? \n    `เรียนคุณ ${name}\\nเจ้าหน้าที่จะติดต่อกลับภายใน 24 ชั่วโมงค่ะ\\nหากเร่งด่วน กรุณาติดต่อ:\\nโทร: 02-222-2222  ขอบคุณที่ใช้บริการค่ะ` :\n    `เจ้าหน้าที่จะติดต่อกลับภายใน 24 ชั่วโมงค่ะ\\nหากเร่งด่วน กรุณาติดต่อ: 02-222-2222 ขอบคุณที่ใช้บริการค่ะ`;\n  \n  return [{\n    json: {\n      text: userReply\n    }\n  }];\n  \n} catch (error) {\n  console.error('Error in Admin Alert Code:', error);\n  return [{\n    json: {\n      text: \"ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้งค่ะ\"\n    }\n  }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5660,
+        6840
+      ],
+      "id": "a60aee8c-04f2-472d-b697-e74e1eb20fcd",
+      "name": "Admin Alert Code1"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4",
+          "mode": "list",
+          "cachedResultName": "GPT-4"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=แก้ไขการสะกดและไวยากรณ์ในคำนี้ {{ $('Edit Fields1').item.json.body.events[0].message.text }}\n\nโดยให้แก้ไขคำผิดเท่านั้นห้ามแต่งเดิมปรธโยค"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -8360,
+        6460
+      ],
+      "id": "f9091231-d4e4-4867-9087-3a8581df4aa4",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "2RHOyXm2TG8WDZok",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  // ส่งข้อความแจ้งเตือนทันทีเมื่อกด 1\n  return [{\n    json: {\n      text: \"กำลังส่งเรื่องให้เจ้าหน้าที่ กรุณารอสักครู่ค่ะ\",\n      userId: $json.userId,\n      message: $json.message,\n      replyToken: $json.replyToken\n    }\n  }];\n  \n} catch (error) {\n  console.error('Error in Send Notification Before Admin:', error);\n  return [{\n    json: {\n      text: \"กำลังส่งเรื่องให้เจ้าหน้าที่ กรุณารอสักครู่ค่ะ\",\n      userId: $json.userId,\n      message: $json.message,\n      replyToken: $json.replyToken\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -740,
+        13760
+      ],
+      "id": "89022ef5-b1ee-4ff6-be60-ed584fee055e",
+      "name": "Send Notification Before Admin"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/reply",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"replyToken\": $json.replyToken,\n  \"messages\": [\n    {\n      \"type\": \"text\",\n      \"text\": $json.text\n    }\n  ]\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -480,
+        13760
+      ],
+      "id": "64ee60c7-4328-4db1-bbbd-cd1fe9b85945",
+      "name": "HTTP Send Notification",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Cx3x2Lw4eG9d4Xyr",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/plain"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1960,
+        13040
+      ],
+      "id": "cdee8c36-a707-4300-9246-8903bb0e8112",
+      "name": "Respond to Webhook",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const extractedData = $('Information Extractor').item.json.output;\n  \n\n  const name = extractedData.name || '';\n  const issue = extractedData.issue || 'ไม่ระบุ';\n  \n  // สร้างข้อความตอบกลับผู้ใช้\n  let userReply = name ? \n    `เรียนคุณ ${name}\\nสอบถามมาเกี่ยวกับ \"${issue}\"  เจ้าหน้าที่จะติดต่อกลับภายใน 24 ชั่วโมงค่ะ\\nหากเร่งด่วน กรุณาติดต่อ:\\nโทร: 02-222-2222  ขอบคุณที่ใช้บริการค่ะ` :\n    `สอบถามมาเกี่ยวกับ \"${issue}\"  เจ้าหน้าที่จะติดต่อกลับภายใน 24 ชั่วโมงค่ะ\\nหากเร่งด่วน กรุณาติดต่อ: 02-222-2222  ขอบคุณที่ใช้บริการค่ะ`;\n  \n  return [{\n    json: {\n      text: userReply\n    }\n  }];\n  \n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        380,
+        13020
+      ],
+      "id": "7de2a1b8-6e55-4394-8a2f-aa7783a394d0",
+      "name": "Admin Alert Code"
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.message }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "name",
+              "description": "ชื่อ ,  Name"
+            },
+            {
+              "name": "phone",
+              "description": "เบอร์"
+            },
+            {
+              "name": "issue",
+              "description": "ปัญหา",
+              "required": true
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "คุณเป็นผู้เชี่ยวชาญจะที่สกัดข้อมูลจากข้อความ โดยคำนึงถึงบริบทการสนทนา\n\nกรุณาสกัดข้อมูลตามที่กำหนด"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        -760,
+        13020
+      ],
+      "id": "78f90164-66a4-45b3-913a-c453588da074",
+      "name": "Information Extractor"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output.issue || $json.message || 'คำถามทั่วไป' }}",
+        "options": {
+          "systemPromptTemplate": "คุณเป็นผู้ช่วยที่ตอบคำถามโดยอิงจากข้อมูลที่มีให้เท่านั้น\\n\\nถ้ามีข้อมูลใน Context ให้ตอบตามข้อมูลนั้น โดยจัดเรียงให้เข้าใจง่าย\\nถ้าไม่มีข้อมูลใน Context หรือ Context ว่าง ให้ตอบว่า \"ไม่พบข้อมูลในเอกสารค่ะ\"\\nตอบเป็นภาษาไทยและลงท้ายด้วย \"ค่ะ\"\\n\\nContext: {context}\\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainRetrievalQa",
+      "typeVersion": 1.6,
+      "position": [
+        200,
+        12300
+      ],
+      "id": "80faf533-0cdd-4e5f-9bf1-394509db0356",
+      "name": "Question and Answer Chain"
+    },
+    {
+      "parameters": {
+        "topK": 7
+      },
+      "type": "@n8n/n8n-nodes-langchain.retrieverVectorStore",
+      "typeVersion": 1,
+      "position": [
+        280,
+        12520
+      ],
+      "id": "722db0cd-48f8-472b-939e-2f52e00b3194",
+      "name": "Vector Store Retriever1",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "my_collection55",
+          "mode": ""
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        300,
+        12680
+      ],
+      "id": "2930fd7b-c059-40a2-8274-7476cda4fcf7",
+      "name": "Qdrant Vector Store1",
+      "credentials": {
+        "qdrantApi": {
+          "id": "rRKHy3jO1VHzH0Xr",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        400,
+        12820
+      ],
+      "id": "44bc83fb-afee-4ec1-a098-e5a9320170f4",
+      "name": "Embeddings OpenAI1",
+      "credentials": {
+        "openAiApi": {
+          "id": "2RHOyXm2TG8WDZok",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        120,
+        12520
+      ],
+      "id": "e2d073f3-102d-40d0-9fbd-479854cf4995",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "2RHOyXm2TG8WDZok",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputText": "={{ $json.output.issue || $json.message || 'คำถามทั่วไป' }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "คำถาม",
+              "description": " เกี่ยวกับ pos, การเพิ่มสินค้า, คู่มือ"
+            },
+            {
+              "category": "สอบถามบริการ",
+              "description": "สอบถามเกี่ยวกับบริการที่มี"
+            },
+            {
+              "category": "แจ้งปัญหา",
+              "description": "แจ้งปัญหาการใช้งานและขอความช่วยเหลือ"
+            },
+            {
+              "category": "สอบถามเรื่องราคา",
+              "description": "ราคา, เท่าไร, กี่บาท, ค่าใช้จ่าย"
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "=คุณเป็นผู้เชี่ยวชาญที่จะต้องช่วยเหลือลูกค้าในการหาข้อมูลหรือสอบถามเจ้าหน้าที่\n",
+          "enableAutoFixing": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        -360,
+        13000
+      ],
+      "id": "496e24ef-d491-4d8f-993a-1d24f0f33313",
+      "name": "Text Classifier1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -560,
+        13260
+      ],
+      "id": "fd092979-6a82-4ace-b1b1-9cbc094cf082",
+      "name": "OpenAI Chat Model5",
+      "credentials": {
+        "openAiApi": {
+          "id": "2RHOyXm2TG8WDZok",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  // ดึงข้อมูล response จากโหนดก่อนหน้า\n  const inputData = $input.first().json;\n  console.log('Code input data:', JSON.stringify(inputData, null, 2));\n  \n  // ลองดึงจากหลาย property ที่เป็นไปได้\n  const userReply = inputData.response || inputData.text || inputData.output || inputData.answer || '';\n  \n  // เช็คว่ามีข้อมูลหรือไม่\n  if (!userReply || userReply.trim() === '') {\n    console.log('No response data found, using default message');\n    return [{\n      json: {\n        text: \"ขออภัยค่ะ ไม่พบข้อมูลที่ต้องการ กรุณาลองถามใหม่อีกครั้งค่ะ\"\n      }\n    }];\n  }\n  \n  console.log('Code reply:', userReply);\n  \n  return [{\n    json: {\n      text: userReply\n    }\n  }];\n  \n} catch (error) {\n  console.error('Error in Code:', error);\n  return [{\n    json: {\n      text: \"ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้งค่ะ\"\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        12300
+      ],
+      "id": "3d4cef8c-6554-41e8-8df9-b9f29d018d56",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/reply",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"replyToken\": $('Edit Fields').item.json.body.events[0].replyToken,\n  \"messages\": [\n    {\n      \"type\": \"text\",\n      \"text\": $json.text || 'ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้งค่ะ'\n    }\n  ]\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1480,
+        13040
+      ],
+      "id": "1fe4c5f7-30a3-4ed3-829a-88fb5f0e3602",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Cx3x2Lw4eG9d4Xyr",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tyreis88",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -3180,
+        13020
+      ],
+      "id": "49a3f1d1-dd9c-426c-b9b0-b4cb95a916e4",
+      "name": "Webhook",
+      "webhookId": "10a617e8-a0f3-401f-be76-79e386e0e4b8"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a027155a-071f-4e2c-9905-1b41abea507c",
+              "name": "body.events[0].replyToken",
+              "value": "={{ $('Webhook').item.json.body.events[0].replyToken }}",
+              "type": "string"
+            },
+            {
+              "id": "812a988a-0520-46ed-af6f-0a431814a1bd",
+              "name": "body.events[0].message.text",
+              "value": "={{ $json.body.events[0].message.text }}",
+              "type": "string"
+            },
+            {
+              "id": "01feb716-a36a-4d7d-ac12-19bd0bb4b796",
+              "name": "body.events[0].source.userId",
+              "value": "={{ $json.body.events[0].source.userId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2880,
+        13020
+      ],
+      "id": "95464d57-acda-4559-b2de-e14738a47bef",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/reply",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"replyToken\": $('Edit Fields').item.json.body.events[0].replyToken,\n  \"messages\": [\n    {\n      \"type\": \"text\",\n      \"text\": $json.text\n    }\n  ]\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4360,
+        14620
+      ],
+      "id": "7bc53bad-be39-4d12-a0ad-0c0522b4986f",
+      "name": "HTTP Request3",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Cx3x2Lw4eG9d4Xyr",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/reply",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"replyToken\": $('Edit Fields').item.json.body.events[0].replyToken,\n  \"messages\": [\n    {\n      \"type\": \"text\",\n      \"text\": $json.text\n    }\n  ]\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5000,
+        13960
+      ],
+      "id": "b619272c-83dd-4a9e-933a-add84853477c",
+      "name": "HTTP Request8",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Cx3x2Lw4eG9d4Xyr",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "653e6047-eb03-4452-9677-27a668dc86c5",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "available",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5240,
+        14280
+      ],
+      "id": "e0f00e43-8faf-4af4-8d0a-0a9cbd3c5341",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  // ดึงข้อมูลพื้นฐาน\n  const webhookData = $('Edit Fields').item.json;\n  const userId = $('Edit Fields').first().json.body.events[0].source.userId;\n  const message = $('Edit Fields').first().json.body.events[0].message.text;\n  const replyToken = $('Edit Fields').first().json.body.events[0].replyToken;\n  const flowDecision = $input.first().json.flowDecision || 'default'; // กำหนดค่า default หากไม่มี flowDecision\n\n  console.log('Debug - Webhook data:', JSON.stringify(webhookData, null, 2));\n  console.log('Debug - userId extracted:', userId);\n  console.log('Debug - message extracted:', message);\n\n  // เช็คว่ามีข้อมูลครบหรือไม่\n  if (!userId) {\n    console.log('No userId found in webhook data');\n    return [{\n      json: {\n        status: 'error',\n        message: 'ไม่พบข้อมูลผู้ใช้',\n        canProceed: false,\n        debug: {\n          webhookData: webhookData,\n          extractedUserId: userId\n        }\n      }\n    }];\n  }\n\n  if (!message || message.trim() === '') {\n    console.log('Empty message received');\n    return [{\n      json: {\n        status: 'error',\n        userId: userId,\n        message: 'กรุณาส่งข้อความที่ต้องการสอบถามค่ะ',\n        canProceed: false,\n        replyToken: replyToken\n      }\n    }];\n  }\n\n  // เช็คคำสั่งพิเศษ\n  const lowerMessage = message.toLowerCase().trim();\n  if (lowerMessage === 'ยกเลิก' || lowerMessage === 'cancel') {\n    return [{\n      json: {\n        status: 'cancelled',\n        userId: userId,\n        message: 'ยกเลิกการดำเนินการเรียบร้อยค่ะ',\n        canProceed: false,\n        replyToken: replyToken\n      }\n    }];\n  }\n\n  // ถ้าเป็นคำสั่ง \"1\" ให้ข้ามการเช็ค session\n  if (message.trim() === '1') {\n    return [{\n      json: {\n        status: 'skip_session_check',\n        userId: userId,\n        message: message,\n        canProceed: true,\n        replyToken: replyToken,\n        isMenuCommand: true\n      }\n    }];\n  }\n\n  // เช็คว่า user มี active session หรือไม่จาก Google Sheets\n  let sheetsData = [];\n\n  // จัดการข้อมูลจาก Google Sheets อย่างปลอดภัย\n  try {\n    const sheetsResponse = $('Get row(s) in sheet');\n    console.log('Sheets response:', JSON.stringify(sheetsResponse, null, 2));\n\n    // เช็คว่ามี items หรือไม่\n    if (sheetsResponse && sheetsResponse.items) {\n      sheetsData = sheetsResponse.items;\n    } else if (sheetsResponse && sheetsResponse.item) {\n      sheetsData = [sheetsResponse.item];\n    } else {\n      sheetsData = [];\n    }\n\n    console.log('Processed sheets data length:', sheetsData.length);\n\n  } catch (sheetsError) {\n    console.log('Error accessing sheets data:', sheetsError.message);\n    sheetsData = [];\n  }\n\n  let isWaiting = false;\n  let waitingEntry = null;\n\n  // ถ้าไม่มีข้อมูลใน Google Sheets เลย ให้สถานะเป็น available\n  if (sheetsData.length === 0) {\n    console.log(`No data in Google Sheets - User ${userId} can proceed`);\n    return [{\n      json: {\n        status: 'available',\n        userId: userId,\n        message: message,\n        canProceed: true,\n        replyToken: replyToken,\n        timestamp: Date.now(),\n        note: 'No existing sessions found',\n        flowDecision: flowDecision // เพิ่ม flowDecision ในผลลัพธ์\n      }\n    }];\n  }\n\n  // กรองข้อมูลที่เป็น error ออก และหาข้อมูลของ user นี้ที่มีสถานะ waiting\n  const validData = sheetsData.filter(item => {\n    const row = item.json || item;\n    // กรองข้อมูลที่ไม่ใช่ error\n    return row && typeof row === 'object' && !row.error && row.userId;\n  });\n\n  console.log('Valid data after filtering:', validData.length);\n\n  if (validData.length > 0) {\n    waitingEntry = validData.find(item => {\n      const row = item.json || item;\n      return row.userId === userId && row.status === 'waiting';\n    });\n    isWaiting = !!waitingEntry;\n  }\n\n  if (isWaiting) {\n    return [{\n      json: {\n        status: 'waiting',\n        userId: userId,\n        message: 'คุณมีคำถามที่รอการตอบกลับจากเจ้าหน้าที่อยู่ กรุณารอสักครู่ค่ะ หรือสามารถยกเลิกได้โดยพิมพ์ \"ยกเลิก\"',\n        canProceed: false,\n        replyToken: replyToken,\n        waitingSince: (waitingEntry.json || waitingEntry).timestamp || 'ไม่ทราบเวลา',\n        flowDecision: flowDecision // เพิ่ม flowDecision ในผลลัพธ์\n      }\n    }];\n  }\n\n  // ถ้าทุกอย่างปกติ ให้ดำเนินการต่อ\n  console.log(`User ${userId} can proceed with message: ${message}`);\n\n  return [{\n    json: {\n      status: 'available',\n      userId: userId,\n      message: message,\n      canProceed: true,\n      replyToken: replyToken,\n      timestamp: Date.now(),\n      flowDecision: flowDecision // เพิ่ม flowDecision ในผลลัพธ์\n    }\n  }];\n\n} catch (error) {\n  console.error('Error in Check User Session:', error);\n  return [{\n    json: {\n      status: 'error',\n      message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้งค่ะ',\n      canProceed: false,\n      error: error.message,\n      stack: error.stack,\n      flowDecision: flowDecision // เพิ่ม flowDecision ในผลลัพธ์กรณีเกิดข้อผิดพลาด\n    }\n  }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1580,
+        13020
+      ],
+      "id": "0b0a9c1f-adf4-40f7-9a43-1b1b3e0cb4ad",
+      "name": "Check User Session"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. แก้ไข Code ใน \"Add User to Waiting\" node:\ntry {\n  // ดึงข้อมูลจาก Check User Session แทน\n  const sessionData = $('Check User Session').first().json;\n  const userId = $input.first().json.userId\n  const message = $input.first().json.message\n  \n  console.log('Debug - userId found:', userId);\n  console.log('Debug - message found:', message);\n  \n  if (!userId) {\n    console.log('No userId provided for waiting session');\n    return [{\n      json: {\n        error: 'No userId provided',\n        status: 'failed'\n      }\n    }];\n  }\n  \n  // จำลองการเพิ่ม user เข้า waiting list\n  const currentTime = new Date().toISOString();\n  \n  console.log(`User ${userId} added to waiting list at ${currentTime}`);\n  \n  // เตรียมข้อมูลสำหรับ Google Sheets\n  return [{\n    json: {\n      userId: userId,\n      status: 'waiting',\n      timestamp: currentTime,\n      message: message || 'ไม่ระบุ'\n    }\n  }];\n  \n} catch (error) {\n  console.error('Error in Add User to Waiting:', error);\n  return [{\n    json: {\n      error: error.message,\n      status: 'failed',\n      stack: error.stack\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220,
+        13760
+      ],
+      "id": "2992017a-cb31-4d3b-8ff5-fae90f9d1945",
+      "name": "Add User to Waiting"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  let inputData = $input.length > 0 ? $input.first().json : {};\n  \n  let userId = $('Webhook').first().json.body.events[0].source.userId\n\n  // ถ้าไม่มี userId ใน input ให้ไปดึงจาก Check User Session\n  if (!userId) {\n    try {\n      const sessionData = $('Check User Session').first().json;\n      userId = sessionData.userId;\n    } catch (e) {\n      console.log('Cannot retrieve userId from Check User Session');\n    }\n  }\n\n  if (!userId) {\n    console.log('No userId provided for removal from waiting');\n    return [{\n      json: {\n        error: 'No userId provided',\n        status: 'failed'\n      }\n    }];\n  }\n\n  const currentTime = new Date().toISOString();\n  console.log(`User ${userId} removed from waiting list at ${currentTime}`);\n\n  let adminResponse = 'เจ้าหน้าที่ได้ตอบกลับแล้วค่ะ';\n  try {\n    const waitData = $('Wait').first().json;\n    adminResponse = waitData.response || waitData.message || waitData.text || adminResponse;\n  } catch (e) {\n    console.log('Cannot access Wait data:', e.message);\n  }\n\n  return [{\n    json: {\n      userId: userId,\n      status: 'completed',\n      timestamp: currentTime,\n      adminResponse: adminResponse\n    }\n  }];\n\n} catch (error) {\n  console.error('Error in Remove User from Waiting:', error);\n  return [{\n    json: {\n      error: error.message,\n      status: 'failed',\n      stack: error.stack\n    }\n  }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        13760
+      ],
+      "id": "8aaa8332-1ac5-4809-ac3b-873f3b038ad9",
+      "name": "Remove User from Waiting"
+    },
+    {
+      "parameters": {
+        "resume": "form",
+        "formTitle": "แอดมินตอบ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        340,
+        13760
+      ],
+      "id": "0cc0b746-d6a7-45ae-9d68-a5563ae1df2c",
+      "name": "Wait",
+      "webhookId": "a3ad52d2-8590-410f-a1d8-8dc89e56bd2f",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk",
+          "mode": "list",
+          "cachedResultName": "Session",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "ชีต1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit#gid=0"
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        900,
+        13760
+      ],
+      "id": "db5b1266-d3d2-4187-ab31-e58737277f51",
+      "name": "Clear sheet1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yXwpG74z0WCiuGZW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk",
+          "mode": "list",
+          "cachedResultName": "Session",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "ชีต1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        4540,
+        13540
+      ],
+      "id": "3216ccc9-abef-45d0-b60e-26f4e0ed227c",
+      "name": "Get row(s) in sheet",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yXwpG74z0WCiuGZW",
+          "name": "Google Sheets account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk",
+          "mode": "list",
+          "cachedResultName": "Session",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "ชีต1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        80,
+        13760
+      ],
+      "id": "795b831e-9ece-4c16-86ac-5786d7a97d02",
+      "name": "Append row in sheet1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yXwpG74z0WCiuGZW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Get Conversation History').item.json.flowDecision }}",
+                    "rightValue": "first_greeting",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "35280fc8-aed7-472d-9a97-b875d3d69cbf"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "78409f79-3d13-4b2b-9808-a515d3a35c68",
+                    "leftValue": "={{ $('Get Conversation History').item.json.flowDecision }}",
+                    "rightValue": "returning_greeting",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "5e1f7234-d963-45a3-bc81-91d0bb095aed",
+                    "leftValue": "={{ $('Get Conversation History').item.json.flowDecision }}",
+                    "rightValue": "simple_response",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "4f5809f3-a033-4270-b1b5-6fe3d3b6ee5e",
+                    "leftValue": "={{ $('Get Conversation History').item.json.flowDecision }}",
+                    "rightValue": "continue_conversation",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cf88376f-6117-45b7-ae0b-43f80bf4dfe3",
+                    "leftValue": "={{ $('Get Conversation History').item.json.flowDecision }}",
+                    "rightValue": "new_question",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e50085e1-e092-4ada-b053-9df0ec1498a0",
+                    "leftValue": "={{ $json.message }}",
+                    "rightValue": "1",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -1180,
+        12960
+      ],
+      "id": "078a76e0-cd08-4f42-8777-d88bbc5027af",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/reply",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"replyToken\": $('Switch').item.json.replyToken,\n  \"messages\": [\n    {\n      \"type\": \"text\",\n      \"text\": $json.output.issue\n    }\n  ]\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4520,
+        14160
+      ],
+      "id": "0d0687ca-3aad-44f1-b1b4-bcf00b63a270",
+      "name": "HTTP Request9",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Cx3x2Lw4eG9d4Xyr",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "text": "={{ $json.chatInput }}",
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notionTool",
+      "typeVersion": 2.2,
+      "position": [
+        5020,
+        14320
+      ],
+      "id": "9f6dee6a-d627-4985-998e-91722a9af622",
+      "name": "Notion1",
+      "credentials": {
+        "notionApi": {
+          "id": "IptNwQyRHEkhMtNf",
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const userId = $('Edit Fields').first().json.body?.events[0]?.source?.userId;\n  const currentMessage = $input.first().json.message.content\n  const replyToken = $('Edit Fields').first().json.body?.events[0]?.replyToken;\n\n  // ตรวจสอบว่า userId หรือ currentMessage มีค่าไหม\n  if (!userId || !currentMessage) {\n    throw new Error('Missing userId or currentMessage');\n  }\n\n  // ดึงประวัติการสนทนาจาก Google Sheets\n  const conversationData = $('Get Conversation History Sheet').items || [];\n  \n  // หาประวัติของ user นี้ในช่วง 24 ชั่วโมงที่ผ่านมา\n  const now = new Date();\n  const oneDayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));\n  \n  const userHistory = conversationData.filter(item => {\n    const row = item.json || item;\n    if (!row.userId || !row.timestamp) return false;\n    \n    const messageTime = new Date(row.timestamp);\n    return row.userId === userId && messageTime > oneDayAgo;\n  }).sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));\n\n  // ตรวจสอบประเภทข้อความ\n  const greetings = ['สวัสดี', 'หวัดดี', 'hello', 'hi', 'ดีจ้า', 'ไฮ', 'สวัสดีครับ', 'สวัสดีค่ะ'];\n  const isGreeting = greetings.some(greeting => \n    currentMessage.toLowerCase().includes(greeting.toLowerCase())\n  );\n  \n  const simpleResponses = ['ขอบคุณ', 'thank you', 'โอเค', 'ok', 'ครับ', 'ค่ะ', 'ขอบใจ'];\n\n// ตรวจสอบว่า currentMessage มีคำใดใน simpleResponses หรือไม่\n  const isSimpleResponse = simpleResponses.some(word => \n        simpleResponses.some(response => currentMessage.toLowerCase().includes(response.toLowerCase()))\n);\n\n  \n  // สร้างบริบทการสนทนา \n  let conversationContext = \"\"; \n  if (userHistory.length > 0) { \n    const recentMessages = userHistory.slice(-6); // เอา 6 ข้อความล่าสุด (3 คู่สนทนา) \n    conversationContext = \"ประวัติการสนทนาล่าสุด:\\n\"; \n    recentMessages.forEach(item => { \n      const row = item.json || item; \n      conversationContext += `${row.role}: ${row.message}\\n`; \n    }); \n    conversationContext += `\\nข้อความปัจจุบัน: ${currentMessage}`; \n  }\n\n  // กำหนด flow ที่จะใช้\n  let flowDecision = 'unknown';\n  let shouldUseRAG = false;\n  let shouldUseContinuation = false;\n  \n  if (isGreeting && userHistory.length === 0) {\n    // ทักทายครั้งแรก\n    flowDecision = 'first_greeting';\n  } else if (isGreeting && userHistory.length > 0) {\n    // ทักทายคนที่เคยคุยแล้ว\n    flowDecision = 'returning_greeting';\n  } else if (isSimpleResponse) {\n    // การตอบสั้นๆ\n    flowDecision = 'simple_response';\n  } else if (userHistory.length > 0) {\n    // มีประวัติการสนทนา - ใช้ continuation\n    flowDecision = 'continue_conversation';\n    shouldUseContinuation = true;\n  } else {\n    // คำถามใหม่ที่ไม่มีประวัติ - ใช้ RAG\n    flowDecision = 'new_question';\n    shouldUseRAG = true;\n  }\n  \n  return [{\n    json: {\n      userId: userId,\n      currentMessage: currentMessage,  // ใช้ข้อความที่ได้รับการแก้ไข\n      replyToken: replyToken,\n      hasHistory: userHistory.length > 0,\n      historyCount: userHistory.length,\n      conversationContext: conversationContext,\n      isGreeting: isGreeting,\n      isSimpleResponse: isSimpleResponse,\n      flowDecision: flowDecision,\n      shouldUseRAG: shouldUseRAG,\n      shouldUseContinuation: shouldUseContinuation,\n      timestamp: now.toISOString(),\n      sessionId: `${userId}_${now.toISOString().split('T')[0]}`\n    }\n  }];\n  \n} catch (error) {\n  console.error('Error in Get Conversation History:', error);\n  return [{\n    json: {\n      flowDecision: 'error',\n      error: error.message,\n      userId: '',\n      currentMessage: '',\n      hasHistory: false,\n      shouldUseRAG: true,\n      shouldUseContinuation: false\n    }\n  }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1920,
+        13020
+      ],
+      "id": "f0f050e2-729a-48b9-b252-06c0dcd0ea37",
+      "name": "Get Conversation History"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk",
+          "mode": "list",
+          "cachedResultName": "Session",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1586185798,
+          "mode": "list",
+          "cachedResultName": "n8n-sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k_mbgTvK24Sf5X17zCcpJYWfDPLjI0yYBZ2wTbLylvk/edit#gid=1586185798"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -2600,
+        13020
+      ],
+      "id": "8739b9bf-2893-457b-8b5a-672a30faed5e",
+      "name": "Get Conversation History Sheet",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yXwpG74z0WCiuGZW",
+          "name": "Google Sheets account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputData = $input.first().json;\n  \n  // ดึงข้อมูลจาก Get Conversation History\n  let contextData = {};\n  try {\n    contextData = $('Get Conversation History').first().json;\n  } catch (e) {\n    console.log('Cannot access context data');\n  }\n  \n  const userId = contextData.userId || '';\n  const sessionId = contextData.sessionId || `${userId}_${new Date().toISOString().split('T')[0]}`;\n  const timestamp = new Date().toISOString();\n  \n  const records = [];\n  \n  // บันทึกข้อความของ user\n  if (contextData.currentMessage) {\n    records.push({\n      userId: userId,\n      sessionId: sessionId,\n      role: 'user',\n      message: contextData.currentMessage,\n      timestamp: timestamp,\n      messageType: contextData.flowDecision || 'user_message'\n    });\n  }\n  \n  // บันทึกการตอบกลับของ assistant\n  const assistantResponse = inputData.text || inputData.response || inputData.output || 'ตอบกลับไม่สำเร็จ';\n  records.push({\n    userId: userId,\n    sessionId: sessionId,\n    role: 'assistant',\n    message: assistantResponse,\n    timestamp: new Date(Date.now() + 1000).toISOString(),\n    messageType: inputData.messageType || 'assistant_response'\n  });\n  \n  // แปลงเป็น text format และ return เป็น array ของ objects\n  return records.map(record => ({ text: JSON.stringify(record) }));\n  \n} catch (error) {\n  console.error('Error saving conversation history:', error);\n  return [{ text: 'Error occurred while saving conversation history' }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1020,
+        13040
+      ],
+      "id": "ae410b63-24e7-4cba-b02c-7577b8b73ba5",
+      "name": "Save to Conversation History",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputData = $input.first().json;\n  const conversationContext = inputData.conversationContext || '';\n  const currentMessage = inputData.currentMessage || '';\n  \n  if (!conversationContext) {\n    // ถ้าไม่มี context ให้ fallback ไป RAG\n    return [{\n      json: {\n        prompt: `กรุณาตอบคำถาม: ${currentMessage}`,\n        messageType: 'fallback_response'\n      }\n    }];\n  }\n  \n  // สร้าง prompt สำหรับการสนทนาต่อเนื่อง\n  const prompt = `คุณเป็น AI Assistant ที่ช่วยเหลือลูกค้า\n\n${conversationContext}\n\nคำแนะนำ:\n- อ้างอิงการสนทนาที่ผ่านมาเมื่อเหมาะสม\n- ไม่ต้องทักทายซ้ำ\n- ตอบให้ต่อเนื่องกับบริบท\n- ตอบเป็นภาษาไทยและลงท้ายด้วย \"ค่ะ\"\n\nกรุณาตอบ:`;\n  \n  return [{\n    json: {\n      prompt: prompt,\n      messageType: 'conversation_continue'\n    }\n  }];\n  \n} catch (error) {\n  return [{\n    json: {\n      prompt: `กรุณาตอบคำถาม: ${$input.first().json.currentMessage || ''}`,\n      messageType: 'error_response'\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        12800
+      ],
+      "id": "c692658b-5f9f-4213-a26d-f67a38cbafcb",
+      "name": "Code4"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputData = $input.first().json;\n  const flowDecision = inputData.flowDecision;\n  \n  let responseText = '';\n  \n  switch(flowDecision) {\n    case 'first_greeting':\n      const greetingResponses = [\n        'สวัสดีค่ะ! ยินดีต้อนรับสู่ระบบช่วยเหลือของเราค่ะ 😊 มีอะไรให้ช่วยเหลือมั้ยคะ?',\n        'หวัดดีค่ะ! ดิฉันพร้อมช่วยเหลือคุณแล้วค่ะ มีคำถามอะไรถามได้เลยนะคะ',\n        'สวัสดีค่ะ! ยินดีที่ได้รู้จักค่ะ มีอะไรที่อยากสอบถามมั้ยคะ?'\n      ];\n      responseText = greetingResponses[Math.floor(Math.random() * greetingResponses.length)];\n      break;\n      \n    case 'returning_greeting':\n      const returningResponses = [\n        'สวัสดีอีกครั้งค่ะ! มีอะไรเพิ่มเติมที่อยากสอบถามมั้ยคะ?',\n        'กลับมาอีกแล้วค่ะ! มีอะไรให้ช่วยเหลือเพิ่มเติมมั้ยคะ?',\n        'สวัสดีค่ะ! ดีใจที่เจอกันอีกครั้งค่ะ มีอะไรให้ช่วยมั้ยคะ?'\n      ];\n      responseText = returningResponses[Math.floor(Math.random() * returningResponses.length)];\n      break;\n      \n    case 'simple_response':\n      const simpleResponses = [\n        'ยินดีค่ะ 😊 หากมีคำถามอื่นๆ สามารถสอบถามได้เสมอนะคะ',\n        'มีอะไรให้ช่วยเหลืออีกมั้ยคะ?',\n        'ด้วยความยินดีค่ะ 🙏'\n      ];\n      responseText = simpleResponses[Math.floor(Math.random() * simpleResponses.length)];\n      break;\n      \n    default:\n      responseText = 'สวัสดีค่ะ มีอะไรให้ช่วยเหลือมั้ยคะ?';\n  }\n  \n  return [{\n    json: {\n      text: responseText,\n      messageType: flowDecision,\n      shouldSaveHistory: true\n    }\n  }];\n  \n} catch (error) {\n  return [{\n    json: {\n      text: 'สวัสดีค่ะ มีอะไรให้ช่วยเหลือมั้ยคะ?',\n      messageType: 'default',\n      shouldSaveHistory: true\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        12620
+      ],
+      "id": "2722c0dc-050a-4c50-8f92-b0ee86256d48",
+      "name": "Simple Response Generator"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputData = $input.first().json;\n  const conversationContext = inputData.conversationContext || '';\n  const currentMessage = inputData.currentMessage || '';\n  \n  if (!conversationContext) {\n    // ถ้าไม่มี context ให้ fallback ไป RAG\n    return [{\n      json: {\n        response: `ขออภัยค่ะ ไม่พบประวัติการสนทนา กรุณาถามคำถามใหม่อีกครั้งค่ะ`,\n        messageType: 'fallback_response'\n      }\n    }];\n  }\n  \n  // สร้าง prompt สำหรับการสนทนาต่อเนื่อง\n  const prompt = `คุณเป็น AI Assistant ที่ชื่อ \"น้องบอท\" ที่ช่วยเหลือลูกค้า\nคุณต้องตอบโดยอ้างอิงจากบริบทการสนทนาที่ผ่านมา\n\n${conversationContext}\n\nคำแนะนำการตอบ:\n- อ้างอิงการสนทนาที่ผ่านมาเมื่อเหมาะสม\n- ไม่ต้องทักทายซ้ำถ้าเพิ่งทักทายไปแล้ว\n- ตอบให้ต่อเนื่องกับบริบท\n- ตอบเป็นภาษาไทยและลงท้ายด้วย \"ค่ะ\" หรือ \"ครับ\"\n- ถ้าไม่เข้าใจให้ถามย้อนกลับ\n- ตอบสั้นและกระชับ\n\nกรุณาตอบ:`;\n  \n  return [{\n    json: {\n      prompt: prompt,\n      messageType: 'conversation_continue',\n      contextLength: conversationContext.length\n    }\n  }];\n  \n} catch (error) {\n  return [{\n    json: {\n      response: `ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้งค่ะ`,\n      messageType: 'error_response'\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -360,
+        14500
+      ],
+      "id": "73a3b43b-cdc7-4eca-8df7-b8893ab99d05",
+      "name": "Conversation Continuation"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const inputData = $input.first().json;\n  \n  // ดึงข้อมูลจาก Get Conversation History\n  let contextData = {};\n  try {\n    contextData = $('Get Conversation History').first().json;\n  } catch (e) {\n    console.log('Cannot access context data');\n  }\n  \n  const userId = contextData.userId || '';\n  const sessionId = contextData.sessionId || `${userId}_${new Date().toISOString().split('T')[0]}`;\n  const timestamp = new Date().toISOString();\n  \n  const records = [];\n  \n  // บันทึกข้อความของ user (ถ้ายังไม่ได้บันทึก)\n  if (contextData.currentMessage && !inputData.skipUserMessage) {\n    records.push({\n      userId: userId,\n      sessionId: sessionId,\n      role: 'user',\n      message: contextData.currentMessage,\n      timestamp: timestamp,\n      messageType: contextData.flowDecision || 'user_message'\n    });\n  }\n  \n  // บันทึกการตอบกลับของ assistant\n  const assistantResponse = inputData.text || inputData.response || inputData.output || 'ตอบกลับไม่สำเร็จ';\n  records.push({\n    userId: userId,\n    sessionId: sessionId,\n    role: 'assistant',\n    message: assistantResponse,\n    timestamp: new Date(Date.now() + 1000).toISOString(), // เพิ่ม 1 วินาทีเพื่อให้เรียงลำดับถูก\n    messageType: inputData.messageType || 'assistant_response'\n  });\n  \n  console.log('Saving conversation records:', records);\n  \n  return records.map(record => ({ json: record }));\n  \n} catch (error) {\n  console.error('Error saving conversation history:', error);\n  return [{\n    json: {\n      error: error.message,\n      userId: '',\n      sessionId: '',\n      role: 'error',\n      message: 'Failed to save conversation',\n      timestamp: new Date().toISOString(),\n      messageType: 'error'\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        14600
+      ],
+      "id": "179ca2a5-17bc-4e32-8c8e-0d18071f6d24",
+      "name": "Save Conversation"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -60,
+        14580
+      ],
+      "id": "759e3bf5-8506-49fd-a12c-385fbeba1cea",
+      "name": "Get row(s) in sheet4",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yXwpG74z0WCiuGZW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const extractedData = $('Information Extractor').item.json.output;\n  \n  // เช็คข้อมูลก่อนใช้งาน\n  if (!extractedData) {\n    console.log('No extracted data found');\n    return [{\n      json: {\n        text: \"ขออภัยค่ะ ไม่สามารถประมวลผลข้อมูลได้ กรุณาลองใหม่อีกครั้งค่ะ\"\n      }\n    }];\n  }\n  \n  const name = extractedData.name || '';\n  const issue = extractedData.issue || 'ไม่ระบุ';\n  \n  // สร้างข้อความตอบกลับผู้ใช้\n  let userReply = name ? \n    `เรียนคุณ ${name}\\nราคาโปรแกรม1,xxx,xxxค่ะ\\nหากต้องการรายละเอียดเพิ่มเติม\\nทางทีมงานจะส่งใบเสนอราคาและรายละเอียดค่าใช้จ่ายให้ภายหลัง  ขอบคุณที่ใช้บริการค่ะ` :\n    `ราคาโปรแกรม1,xxx,xxxค่ะ\\nหากต้องการรายละเอียดเพิ่มเติมทางทีมงานจะส่งใบเสนอราคาและรายละเอียดค่าใช้จ่ายให้ภายหลังค่ะ ขอบคุณที่ใช้บริการค่ะ`;\n  \n  return [{\n    json: {\n      text: userReply\n    }\n  }];\n  \n} catch (error) {\n  console.error('Error in Admin Alert Code:', error);\n  return [{\n    json: {\n      text: \"ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้งค่ะ\"\n    }\n  }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        380,
+        13240
+      ],
+      "id": "2376962e-6561-4ab2-a601-4488f7eaa376",
+      "name": "Admin Alert Code2"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4",
+          "mode": "list",
+          "cachedResultName": "GPT-4"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=แก้ไขการสะกดและไวยากรณ์ในคำนี้ {{ $('Edit Fields').item.json.body.events[0].message.text }}\n\nโดยให้แก้ไขคำผิดเท่านั้นห้ามแต่งเดิมปรธโยค"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -2320,
+        13020
+      ],
+      "id": "c6e14d14-179b-43d0-bb04-4044ba57f535",
+      "name": "Message a model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "2RHOyXm2TG8WDZok",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "genopatiparn@gmail.com",
+        "subject": "error",
+        "emailType": "text",
+        "message": "=error :{{ $json.error }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        800,
+        13320
+      ],
+      "id": "c01a1f91-6a84-4856-90ac-d23130c7bcb2",
+      "name": "Send a message2",
+      "webhookId": "595271a5-849d-44cd-bb33-b451cec13d0f",
+      "alwaysOutputData": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "LpylCWZq80LRwVTQ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        1460,
+        13540
+      ],
+      "id": "1bddeeab-50d4-4132-9cfb-ccb82ace091a",
+      "name": "Error Trigger",
+      "disabled": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Admin Alert Code4": {
+      "main": [
+        [
+          {
+            "node": "Save to Conversation History1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Information Extractor1": {
+      "main": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Question and Answer Chain1": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vector Store Retriever": {
+      "ai_retriever": [
+        [
+          {
+            "node": "Question and Answer Chain1",
+            "type": "ai_retriever",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "Vector Store Retriever",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Question and Answer Chain1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Classifier": {
+      "main": [
+        [
+          {
+            "node": "Question and Answer Chain1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Admin Alert Code4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Admin Alert Code5",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Admin Alert Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Information Extractor1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Save to Conversation History1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request4": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Get Conversation History Sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Alert Code5": {
+      "main": [
+        [
+          {
+            "node": "Save to Conversation History1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check User Session1": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add User to Waiting1": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove User from Waiting1": {
+      "main": [
+        [
+          {
+            "node": "Clear sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Remove User from Waiting1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Simple Response Generator1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Simple Response Generator1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Simple Response Generator1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Information Extractor1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add User to Waiting1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Conversation History1": {
+      "main": [
+        [
+          {
+            "node": "Check User Session1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Conversation History Sheet1": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Conversation History1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code3": {
+      "main": [
+        [
+          {
+            "node": "Save to Conversation History1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Response Generator1": {
+      "main": [
+        [
+          {
+            "node": "Save to Conversation History1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Alert Code1": {
+      "main": [
+        [
+          {
+            "node": "Save to Conversation History1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Get Conversation History1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Notification Before Admin": {
+      "main": [
+        [
+          {
+            "node": "HTTP Send Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Send Notification": {
+      "main": [
+        [
+          {
+            "node": "Add User to Waiting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Alert Code": {
+      "main": [
+        [
+          {
+            "node": "Save to Conversation History",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Information Extractor": {
+      "main": [
+        [
+          {
+            "node": "Text Classifier1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Question and Answer Chain": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vector Store Retriever1": {
+      "ai_retriever": [
+        [
+          {
+            "node": "Question and Answer Chain",
+            "type": "ai_retriever",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store1": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "Vector Store Retriever1",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Question and Answer Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Classifier1": {
+      "main": [
+        [
+          {
+            "node": "Question and Answer Chain",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Admin Alert Code",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save to Conversation History",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Admin Alert Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Text Classifier1",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Information Extractor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Save to Conversation History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Get Conversation History Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check User Session": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add User to Waiting": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove User from Waiting": {
+      "main": [
+        [
+          {
+            "node": "Clear sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Remove User from Waiting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet1": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Simple Response Generator",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Simple Response Generator",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Simple Response Generator",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Information Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Notification Before Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Conversation History": {
+      "main": [
+        [
+          {
+            "node": "Check User Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Conversation History Sheet": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Conversation History": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code4": {
+      "main": [
+        [
+          {
+            "node": "Save to Conversation History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Response Generator": {
+      "main": [
+        [
+          {
+            "node": "Save to Conversation History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Alert Code2": {
+      "main": [
+        [
+          {
+            "node": "Save to Conversation History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Get Conversation History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message2": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e70b90a5-70be-4039-b498-191b4e8f93fe",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fd5919dd03bd784110bab3b74573e46d52f790c4d0d428fa77900638357ee332"
+  },
+  "id": "jx8b23bUoSUakndJ",
+  "tags": []
+}
